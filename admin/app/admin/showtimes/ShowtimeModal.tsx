@@ -52,7 +52,7 @@ const showtimeSchema = z.object({
   endDate: z.string().optional(),
   startTime: z.string().min(1, 'Start time is required'),
   format: z.string().min(1, 'Format is required'),
-  price: z.coerce.number().min(0, 'Price cannot be negative'),
+  price: z.preprocess((val) => Number(val), z.number().min(0, 'Price cannot be negative')),
 }).refine((data) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -86,7 +86,18 @@ const showtimeSchema = z.object({
   path: ["startDate"]
 });
 
-type ShowtimeFormValues = z.infer<typeof showtimeSchema>;
+type ShowtimeFormValues = {
+  movieId: string;
+  theatreId: string;
+  hallId: string;
+  schedulingType: 'single' | 'range';
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+  startTime: string;
+  format: string;
+  price: number;
+};
 
 interface Movie { _id: string; title: string; }
 interface Theatre { _id: string; name: string; }
@@ -110,7 +121,7 @@ export default function ShowtimeModal({
   const [halls, setHalls] = useState<Hall[]>([]);
 
   const form = useForm<ShowtimeFormValues>({
-    resolver: zodResolver(showtimeSchema),
+    resolver: zodResolver(showtimeSchema as any),
     defaultValues: {
       movieId: '',
       theatreId: '',

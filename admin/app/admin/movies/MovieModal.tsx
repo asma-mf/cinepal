@@ -67,7 +67,7 @@ export default function MovieModal() {
   const [posterUrl, setPosterUrl] = useState('');
 
   const form = useForm<MovieFormValues>({
-    resolver: zodResolver(movieSchema) as any,
+    resolver: zodResolver(movieSchema as any),
     defaultValues: {
       title: '',
       description: '',
