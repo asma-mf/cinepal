@@ -34,7 +34,10 @@ export async function proxyRequest(
     ...(contentType ? { 'Content-Type': contentType } : {}),
   };
 
-  const res = await fetch(`${BASE}${backendPath}`, {
+  const url = new URL(req.url);
+  const searchParams = url.search;
+  
+  const res = await fetch(`${BASE}${backendPath}${searchParams}`, {
     method: resolvedMethod,
     headers,
     body,

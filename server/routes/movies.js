@@ -3,6 +3,43 @@ const express = require('express');
 const router = express.Router();
 const Movie = require('../models/Movie');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+
+router.get('/actor-search', requireAdmin, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.json([]);
+
+    if (!TMDB_API_KEY || TMDB_API_KEY === 'your_tmdb_api_key_here') {
+      return res.status(400).json({ error: 'TMDB API Key not configured in .env' });
+    }
+
+    const isBearer = TMDB_API_KEY.length > 50; // Bearer tokens are usually much longer than 32-char API keys
+    const url = `https://api.themoviedb.org/3/search/person?query=${encodeURIComponent(q)}${isBearer ? '' : `&api_key=${TMDB_API_KEY}`}`;
+    
+    const response = await fetch(url, {
+      headers: isBearer ? {
+        'Authorization': `Bearer ${TMDB_API_KEY.trim()}`,
+        'Content-Type': 'application/json'
+      } : {}
+    });
+    const data = await response.json();
+    
+    if (data.status_message) {
+      console.error('TMDb API Error:', data.status_message);
+      return res.status(401).json({ error: data.status_message });
+    }
+
+    const results = (data.results || []).map((p) => ({
+      name: p.name,
+      profileUrl: p.profile_path ? `https://image.tmdb.org/t/p/w185${p.profile_path}` : null,
+    }));
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {

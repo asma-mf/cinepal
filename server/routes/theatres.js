@@ -66,7 +66,7 @@ router.post('/:id/halls', requireAdmin, async (req, res) => {
     const theatre = await Theatre.findById(req.params.id);
     if (!theatre) return res.status(404).json({ error: 'Theatre not found' });
 
-    const { name, rows, cols } = req.body;
+    const { name, rows, cols, rowBreaks, colBreaks } = req.body;
     const seatLayout = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 1; c <= cols; c++) {
@@ -74,7 +74,15 @@ router.post('/:id/halls', requireAdmin, async (req, res) => {
       }
     }
 
-    const hall = await Hall.create({ theatreId: req.params.id, name, rows, cols, seatLayout });
+    const hall = await Hall.create({ 
+      theatreId: req.params.id, 
+      name, 
+      rows, 
+      cols, 
+      seatLayout,
+      rowBreaks: rowBreaks || [],
+      colBreaks: colBreaks || []
+    });
     res.status(201).json(hall);
   } catch (err) {
     res.status(400).json({ error: err.message });

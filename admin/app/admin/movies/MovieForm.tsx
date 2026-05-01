@@ -30,9 +30,15 @@ export default function MovieForm({ initialData, movieId }: MovieFormProps) {
       ? new Date(initialData.releaseDate as string).toISOString().split('T')[0]
       : '',
     status: (initialData?.status as string) || 'coming_soon',
-    cast: ((initialData?.cast as string[]) || []).join(', '),
+    cast: ((initialData?.cast as any[]) || []).map(item => 
+      typeof item === 'string' ? { name: item } : item
+    ) as { name: string; profileUrl?: string }[],
     rating: String(initialData?.rating || ''),
   });
+
+  const [actorSearch, setActorSearch] = useState('');
+  const [actorResults, setActorResults] = useState<{ name: string; profileUrl?: string }[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setFields((f) => ({ ...f, [key]: e.target.value }));
@@ -52,6 +58,16 @@ export default function MovieForm({ initialData, movieId }: MovieFormProps) {
     setLoading(true);
     setError('');
     try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      const selectedDate = new Date(fields.releaseDate);
+
+      if (selectedDate < today || selectedDate > oneYearFromNow) {
+        throw new Error('Release date must be between today and one year from now');
+      }
+
       const url = await uploadPoster();
       const body = {
         title: fields.title,
@@ -62,7 +78,7 @@ export default function MovieForm({ initialData, movieId }: MovieFormProps) {
         releaseDate: fields.releaseDate,
         status: fields.status,
         posterUrl: url,
-        cast: fields.cast.split(',').map((s) => s.trim()).filter(Boolean),
+        cast: fields.cast,
         rating: fields.rating ? Number(fields.rating) : undefined,
       };
 
@@ -87,6 +103,37 @@ export default function MovieForm({ initialData, movieId }: MovieFormProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleActorSearch = async (val: string) => {
+    setActorSearch(val);
+    if (val.length < 2) {
+      setActorResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/proxy/movies/actor-search?q=${encodeURIComponent(val)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setActorResults(data);
+      }
+    } catch (err) {
+      console.error('Actor search failed', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const addActor = (actor: { name: string; profileUrl?: string }) => {
+    if (fields.cast.some((a) => a.name === actor.name)) return;
+    setFields((f) => ({ ...f, cast: [...f.cast, actor] }));
+    setActorSearch('');
+    setActorResults([]);
+  };
+
+  const removeActor = (name: string) => {
+    setFields((f) => ({ ...f, cast: f.cast.filter((a) => a.name !== name) }));
   };
 
   return (
@@ -141,9 +188,57 @@ export default function MovieForm({ initialData, movieId }: MovieFormProps) {
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label>Cast (comma-separated)</Label>
-        <Input value={fields.cast} onChange={set('cast')} placeholder="Actor 1, Actor 2" />
+      <div className="space-y-3">
+        <Label>Cast (Search Actors) *</Label>
+        <div className="relative">
+          <Input 
+            placeholder="Type actor name..." 
+            value={actorSearch} 
+            onChange={(e) => handleActorSearch(e.target.value)}
+          />
+          {searching && <div className="absolute right-3 top-2.5 text-xs text-muted-foreground">Searching...</div>}
+          
+          {actorResults.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-background border border-muted rounded-md shadow-lg max-h-60 overflow-auto">
+              {actorResults.map((actor, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => addActor(actor)}
+                  className="w-full flex items-center gap-3 p-2 hover:bg-muted transition-colors text-left"
+                >
+                  {actor.profileUrl ? (
+                    <img src={actor.profileUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px]">?</div>
+                  )}
+                  <span className="text-sm font-medium">{actor.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2">
+          {fields.cast.map((actor, i) => (
+            <div key={i} className="flex items-center gap-2 bg-muted/50 border border-muted px-2 py-1.5 rounded-lg group">
+              {actor.profileUrl && (
+                <img src={actor.profileUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
+              )}
+              <span className="text-sm">{actor.name}</span>
+              <button 
+                type="button" 
+                onClick={() => removeActor(actor.name)}
+                className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {fields.cast.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">No actors added yet.</p>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1.5">

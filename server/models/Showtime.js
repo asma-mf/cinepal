@@ -26,4 +26,8 @@ const ShowtimeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Optimize queries for listing showtimes by movie/theatre/date
+ShowtimeSchema.index({ movieId: 1, theatreId: 1, date: 1 });
+ShowtimeSchema.index({ date: 1 });
+
 module.exports = mongoose.model('Showtime', ShowtimeSchema);

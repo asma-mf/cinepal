@@ -54,11 +54,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { HallLayoutEditor } from './HallLayoutEditor';
 
 const hallSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   rows: z.coerce.number().min(1, 'At least 1 row').max(26, 'Max 26 rows'),
   cols: z.coerce.number().min(1, 'At least 1 column'),
+  rowBreaks: z.string().optional().default(''),
+  colBreaks: z.string().optional().default(''),
 });
 
 type HallFormValues = z.infer<typeof hallSchema>;
@@ -68,6 +71,8 @@ interface Hall {
   name: string;
   rows: number;
   cols: number;
+  rowBreaks: number[];
+  colBreaks: number[];
 }
 
 export default function HallsManager({ theatreId, halls }: { theatreId: string; halls: Hall[] }) {
@@ -82,16 +87,23 @@ export default function HallsManager({ theatreId, halls }: { theatreId: string; 
       name: '',
       rows: 10,
       cols: 10,
+      rowBreaks: '',
+      colBreaks: '',
     },
   });
 
   const onSubmit = async (values: HallFormValues) => {
     setLoading(true);
     try {
+      const payload = {
+        ...values,
+        rowBreaks: values.rowBreaks ? values.rowBreaks.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n)) : [],
+        colBreaks: values.colBreaks ? values.colBreaks.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n)) : [],
+      };
       const res = await fetch(`/api/proxy/theatres/${theatreId}/halls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       
       if (!res.ok) {
@@ -194,6 +206,34 @@ export default function HallsManager({ theatreId, halls }: { theatreId: string; 
                       )}
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="rowBreaks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Row Breaks (indices)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 3, 7" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="colBreaks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Col Breaks (indices)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 5" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <DialogFooter className="pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
                       Cancel
@@ -240,35 +280,41 @@ export default function HallsManager({ theatreId, halls }: { theatreId: string; 
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              disabled={deleting === hall._id}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Hall?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently remove the hall and any associated seat configurations. This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDelete(hall._id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        <div className="flex items-center justify-end gap-2">
+                          <HallLayoutEditor 
+                            hall={hall} 
+                            onUpdate={() => router.refresh()} 
+                          />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                disabled={deleting === hall._id}
                               >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Hall?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently remove the hall and any associated seat configurations. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDelete(hall._id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

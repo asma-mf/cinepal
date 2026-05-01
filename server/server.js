@@ -9,6 +9,7 @@ for (const key of required) {
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const connectDB = require('./db');
 const { clerkMiddleware } = require('@clerk/express');
 
 const movieRoutes = require('./routes/movies');
@@ -21,7 +22,13 @@ const paymentRoutes = require('./routes/payments');
 
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',') 
+    : ['http://localhost:3000', 'http://localhost:5173'], // Default dev origins
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(clerkMiddleware());
 
@@ -35,13 +42,19 @@ app.use('/api/showtimes', showtimeRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    const port = process.env.PORT || 5000;
-    app.listen(port, () => console.log(`Server running on port ${port}`));
-  })
-  .catch((err) => {
-    console.error('MongoDB connection failed:', err.message);
-    process.exit(1);
-  });
+// Start Server
+const port = process.env.PORT || 5000;
+connectDB().then(() => {
+  app.listen(port, () => console.log(`Server running on port ${port}`));
+});
+
+// Graceful Shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await mongoose.connection.close();
+  process.exit(0);
+});

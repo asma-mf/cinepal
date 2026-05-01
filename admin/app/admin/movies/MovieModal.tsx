@@ -37,7 +37,10 @@ const movieSchema = z.object({
   duration: z.coerce.number().min(1, 'Duration must be greater than 0'),
   releaseDate: z.string().min(1, 'Release date is required'),
   status: z.enum(['now_showing', 'coming_soon']),
-  cast: z.string().optional(),
+  cast: z.array(z.object({
+    name: z.string(),
+    profileUrl: z.string().optional().nullable(),
+  })).default([]),
   rating: z.coerce.number().min(0, 'Rating cannot be negative').max(10, 'Rating cannot exceed 10').optional().or(z.literal('')),
   featured: z.boolean().default(false),
 });
@@ -65,11 +68,15 @@ export default function MovieModal() {
       duration: 120,
       releaseDate: new Date().toISOString().split('T')[0],
       status: 'coming_soon',
-      cast: '',
+      cast: [],
       rating: '',
       featured: false,
     },
   });
+
+  const [actorSearch, setActorSearch] = useState('');
+  const [actorResults, setActorResults] = useState<{ name: string; profileUrl?: string }[]>([]);
+  const [searchingActors, setSearchingActors] = useState(false);
 
   useEffect(() => {
     async function fetchMovie() {
@@ -86,7 +93,9 @@ export default function MovieModal() {
             duration: data.duration || 120,
             releaseDate: data.releaseDate ? new Date(data.releaseDate).toISOString().split('T')[0] : '',
             status: data.status || 'coming_soon',
-            cast: (data.cast || []).join(', '),
+            cast: ((data.cast || []) as any[]).map(item => 
+              typeof item === 'string' ? { name: item } : item
+            ),
             rating: data.rating || '',
             featured: data.featured || false,
           });
@@ -107,7 +116,7 @@ export default function MovieModal() {
         duration: 120,
         releaseDate: new Date().toISOString().split('T')[0],
         status: 'coming_soon',
-        cast: '',
+        cast: [],
         rating: '',
         featured: false,
       });
@@ -115,6 +124,29 @@ export default function MovieModal() {
       setPosterFile(null);
     }
   }, [editId, action, isOpen, form]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (actorSearch.length >= 2) {
+        setSearchingActors(true);
+        fetch(`/api/proxy/movies/actor-search?q=${encodeURIComponent(actorSearch)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (Array.isArray(data)) {
+              setActorResults(data);
+            } else {
+              setActorResults([]);
+            }
+          })
+          .catch(() => setActorResults([]))
+          .finally(() => setSearchingActors(false));
+      } else {
+        setActorResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [actorSearch]);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -139,7 +171,7 @@ export default function MovieModal() {
       const payload = {
         ...values,
         genre: values.genre.split(',').map((s) => s.trim()).filter(Boolean),
-        cast: values.cast ? values.cast.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        cast: values.cast,
         posterUrl: uploadedPosterUrl,
         rating: values.rating !== '' ? Number(values.rating) : undefined,
         featured: values.featured,
@@ -315,13 +347,72 @@ export default function MovieModal() {
             <FormField
               control={form.control}
               name="cast"
-              render={({ field }) => (
+              render={() => (
                 <FormItem>
-                  <FormLabel>Cast</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Leonardo DiCaprio, Joseph Gordon-Levitt" {...field} />
-                  </FormControl>
-                  <FormDescription>Comma separated list of actors</FormDescription>
+                  <FormLabel>Cast (Search & Add Actors) *</FormLabel>
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Input 
+                        placeholder="Search actor name (e.g. Brad Pitt)..." 
+                        value={actorSearch}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) => setActorSearch(e.target.value)}
+                      />
+                      {searchingActors && <div className="absolute right-3 top-2.5 text-xs text-muted-foreground">Searching...</div>}
+                      
+                      {actorResults.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-auto">
+                          {actorResults.map((actor, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                const current = form.getValues('cast') || [];
+                                if (!current.some(a => a.name === actor.name)) {
+                                  form.setValue('cast', [...current, actor]);
+                                }
+                                setActorSearch('');
+                                setActorResults([]);
+                              }}
+                              className="w-full flex items-center gap-3 p-2 hover:bg-accent transition-colors text-left"
+                            >
+                              {actor.profileUrl ? (
+                                <img src={actor.profileUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-[10px]">?</div>
+                              )}
+                              <span className="text-sm font-medium">{actor.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {(form.watch('cast') || []).map((actor, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-secondary/50 border px-2 py-1.5 rounded-lg">
+                          {actor.profileUrl && (
+                            <img src={actor.profileUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
+                          )}
+                          <span className="text-sm">{actor.name}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const current = form.getValues('cast') || [];
+                              form.setValue('cast', current.filter(a => a.name !== actor.name));
+                            }}
+                            className="ml-1 text-muted-foreground hover:text-destructive"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

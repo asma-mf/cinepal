@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
     const showtimes = await Showtime.find(filter)
       .populate('movieId', 'title posterUrl duration')
       .populate('theatreId', 'name location')
-      .populate('hallId', 'name rows cols')
+      .populate('hallId', 'name rows cols rowBreaks colBreaks')
       .sort({ date: 1, startTime: 1 });
     res.json(showtimes);
   } catch (err) {
@@ -32,7 +32,7 @@ router.get('/:id', async (req, res) => {
     const showtime = await Showtime.findById(req.params.id)
       .populate('movieId', 'title posterUrl duration rating')
       .populate('theatreId', 'name location address')
-      .populate('hallId', 'name rows cols');
+      .populate('hallId', 'name rows cols rowBreaks colBreaks');
     if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
     res.json(showtime);
   } catch (err) {
