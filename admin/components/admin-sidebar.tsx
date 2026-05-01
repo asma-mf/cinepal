@@ -160,7 +160,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 pb-2 group-data-[collapsible=icon]:justify-center">
               <UserButton 
-                afterSignOutUrl="/" 
                 appearance={{
                   elements: {
                     userButtonAvatarWrapper: "size-8",

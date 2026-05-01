@@ -54,7 +54,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+export type { Hall } from './HallLayoutEditor';
 import { HallLayoutEditor } from './HallLayoutEditor';
+import type { Hall } from './HallLayoutEditor';
 
 const hallSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -71,15 +73,6 @@ type HallFormValues = {
   rowBreaks: string;
   colBreaks: string;
 };
-
-interface Hall {
-  _id: string;
-  name: string;
-  rows: number;
-  cols: number;
-  rowBreaks: number[];
-  colBreaks: number[];
-}
 
 export default function HallsManager({ theatreId, halls }: { theatreId: string; halls: Hall[] }) {
   const router = useRouter();

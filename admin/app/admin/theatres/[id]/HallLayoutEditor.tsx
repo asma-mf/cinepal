@@ -15,13 +15,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-interface Hall {
+export interface Hall {
   _id: string;
   name: string;
   rows: number;
   cols: number;
-  rowBreaks: number[];
-  colBreaks: number[];
+  rowBreaks?: number[];
+  colBreaks?: number[];
 }
 
 export function HallLayoutEditor({ hall, onUpdate }: { hall: Hall; onUpdate: () => void }) {

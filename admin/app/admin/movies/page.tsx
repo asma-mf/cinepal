@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { adminFetch } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+
+export const dynamic = 'force-dynamic';
 
 interface Movie {
   _id: string;
@@ -191,7 +194,9 @@ export default async function MoviesPage() {
         </CardContent>
       </Card>
       
-      <MovieModal />
+      <Suspense fallback={null}>
+        <MovieModal />
+      </Suspense>
     </div>
   );
 }
