@@ -1,33 +1,36 @@
 // Seat selection screen: scrollable grid with colour-coded seat states
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Text, Button, ActivityIndicator, Divider, useTheme, Snackbar } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApiClient } from '../services/api';
 import apiClient from '../services/api';
 
 const fetchShowtime = (id) => apiClient.get(`/showtimes/${id}`).then((r) => r.data);
 
 const SEAT_COLORS = {
-  available: '#2d2d2d',
-  hold: '#f59e0b',
-  booked: '#ef4444',
-  selected: '#7c3aed',
+  available: '#2A2A2A',
+  hold: '#F59E0B',
+  booked: '#3A1A1A',
+  selected: '#7C3AED',
+};
+
+const SEAT_BORDER_COLORS = {
+  available: '#3A3A3A',
+  hold: '#F59E0B',
+  booked: '#EF4444',
+  selected: '#A855F7',
 };
 
 export default function SeatSelectionScreen({ route, navigation }) {
   const { showtimeId } = route.params;
   const { authRequest } = useApiClient();
+  const theme = useTheme();
   const [selected, setSelected] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
   const { data: showtime, isLoading, isError } = useQuery({
     queryKey: ['showtime', showtimeId],
@@ -48,14 +51,11 @@ export default function SeatSelectionScreen({ route, navigation }) {
     );
   };
 
-  const getSeatColor = (seat) => {
-    if (isSelected(seat)) return SEAT_COLORS.selected;
-    return SEAT_COLORS[seat.status] || SEAT_COLORS.available;
-  };
+  const getSeatState = (seat) => (isSelected(seat) ? 'selected' : seat.status || 'available');
 
   const handleReserve = async () => {
     if (selected.length === 0) {
-      Alert.alert('Select seats', 'Please select at least one seat');
+      setSnackbar({ visible: true, message: 'Please select at least one seat.' });
       return;
     }
     setSubmitting(true);
@@ -73,124 +73,206 @@ export default function SeatSelectionScreen({ route, navigation }) {
         movie: showtime.movieId,
       });
     } catch (err) {
-      const msg = err.response?.data?.error || 'Could not reserve seats';
-      Alert.alert('Booking Failed', msg);
+      const msg = err.response?.data?.error || 'Could not reserve seats. Please try again.';
+      setSnackbar({ visible: true, message: msg });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (isLoading) return <View style={styles.center}><ActivityIndicator color="#e50914" size="large" /></View>;
-  if (isError) return <View style={styles.center}><Text style={styles.errorText}>Failed to load seats</Text></View>;
+  if (isLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
-  // Group seats by row for rendering
+  if (isError) {
+    return (
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={48} color={theme.colors.primary} />
+        <Text style={{ color: theme.colors.onSurfaceVariant, marginTop: 12 }}>Failed to load seats</Text>
+      </View>
+    );
+  }
+
+  // Group seats by row
   const rows = {};
   (showtime?.seats || []).forEach((seat) => {
     if (!rows[seat.row]) rows[seat.row] = [];
     rows[seat.row].push(seat);
   });
   const sortedRows = Object.keys(rows).sort();
-
   const total = selected.length * (showtime?.price || 0);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Select Seats</Text>
-      <Text style={styles.subtitle}>{showtime?.movieId?.title} • {showtime?.startTime} • {showtime?.format}</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      {/* Header Description */}
+      <View style={styles.screenHeader}>
+        <Text style={styles.screenTitle}>Select Seats</Text>
+        <View style={styles.subtitleRow}>
+          <Text style={styles.movieName} numberOfLines={1}>{showtime?.movieId?.title}</Text>
+          <Text style={styles.showtimeMeta}>{showtime?.startTime} · {showtime?.format}</Text>
+        </View>
+      </View>
 
-      {/* Screen label */}
-      <View style={styles.screen}><Text style={styles.screenText}>SCREEN</Text></View>
+      {/* Screen indicator */}
+      <View style={styles.screenWrapper}>
+        <View style={styles.screenBar} />
+        <Text style={styles.screenLabel}>SCREEN</Text>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.grid}>
-        {sortedRows.map((rowKey) => (
-          <View key={rowKey} style={styles.seatRow}>
-            <Text style={styles.rowLabel}>{rowKey}</Text>
-            {rows[rowKey].sort((a, b) => a.col - b.col).map((seat) => (
-              <TouchableOpacity
-                key={`${seat.row}${seat.col}`}
-                style={[styles.seat, { backgroundColor: getSeatColor(seat) }]}
-                onPress={() => toggleSeat(seat)}
-                disabled={seat.status === 'booked' || seat.status === 'hold'}
-              >
-                <Text style={styles.seatText}>{seat.col}</Text>
-              </TouchableOpacity>
+      {/* Seat grid */}
+      <ScrollView
+        contentContainerStyle={styles.grid}
+        showsVerticalScrollIndicator={false}
+        horizontal={false}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View>
+            {sortedRows.map((rowKey) => (
+              <View key={rowKey} style={styles.seatRow}>
+                <Text style={styles.rowLabel}>{rowKey}</Text>
+                {rows[rowKey].sort((a, b) => a.col - b.col).map((seat) => {
+                  const state = getSeatState(seat);
+                  const isUnavailable = seat.status === 'booked' || seat.status === 'hold';
+                  return (
+                    <TouchableOpacity
+                      key={`${seat.row}${seat.col}`}
+                      style={[
+                        styles.seat,
+                        {
+                          backgroundColor: SEAT_COLORS[state],
+                          borderColor: SEAT_BORDER_COLORS[state],
+                          opacity: seat.status === 'booked' ? 0.4 : 1,
+                        },
+                      ]}
+                      onPress={() => toggleSeat(seat)}
+                      disabled={isUnavailable}
+                      activeOpacity={isUnavailable ? 1 : 0.7}
+                    >
+                      <Text style={styles.seatText}>{seat.col}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             ))}
           </View>
-        ))}
+        </ScrollView>
       </ScrollView>
 
       {/* Legend */}
       <View style={styles.legend}>
-        {Object.entries(SEAT_COLORS).map(([state, color]) => (
-          <View key={state} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: color }]} />
-            <Text style={styles.legendLabel}>{state}</Text>
+        {[
+          { label: 'Available', color: SEAT_COLORS.available, border: SEAT_BORDER_COLORS.available },
+          { label: 'Selected', color: SEAT_COLORS.selected, border: SEAT_BORDER_COLORS.selected },
+          { label: 'Hold', color: SEAT_COLORS.hold, border: SEAT_BORDER_COLORS.hold },
+          { label: 'Booked', color: SEAT_COLORS.booked, border: SEAT_BORDER_COLORS.booked },
+        ].map(({ label, color, border }) => (
+          <View key={label} style={styles.legendItem}>
+            <View style={[styles.legendSeat, { backgroundColor: color, borderColor: border }]} />
+            <Text style={styles.legendLabel}>{label}</Text>
           </View>
         ))}
       </View>
 
+      <Divider style={styles.footerDivider} />
+
       {/* Footer */}
       <View style={styles.footer}>
-        <Text style={styles.totalText}>
-          {selected.length} seat{selected.length !== 1 ? 's' : ''} • LKR {total}
-        </Text>
-        <TouchableOpacity
-          style={[styles.reserveButton, submitting && styles.reserveButtonDisabled]}
+        <View>
+          <Text style={styles.selectedCount}>
+            {selected.length} seat{selected.length !== 1 ? 's' : ''} selected
+          </Text>
+          <Text style={styles.totalAmount}>LKR {total.toLocaleString()}</Text>
+        </View>
+        <Button
+          mode="contained"
           onPress={handleReserve}
-          disabled={submitting}
+          loading={submitting}
+          disabled={submitting || selected.length === 0}
+          icon="ticket"
+          style={styles.reserveButton}
+          contentStyle={styles.reserveContent}
+          labelStyle={styles.reserveLabel}
         >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.reserveButtonText}>Reserve Seats</Text>
-          )}
-        </TouchableOpacity>
+          Reserve
+        </Button>
       </View>
+
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+        duration={3000}
+      >
+        {snackbar.message}
+      </Snackbar>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a' },
-  header: { fontSize: 22, fontWeight: 'bold', color: '#fff', paddingHorizontal: 16, paddingTop: 8 },
-  subtitle: { color: '#aaa', fontSize: 13, paddingHorizontal: 16, marginBottom: 12 },
-  screen: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    paddingVertical: 6,
-    backgroundColor: '#333',
-    borderRadius: 4,
-    alignItems: 'center',
+  container: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  screenHeader: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  screenTitle: { fontSize: 24, fontWeight: '800', color: '#F5F5F5' },
+
+  subtitleRow: { paddingHorizontal: 0, paddingTop: 4, paddingBottom: 0 },
+  movieName: { color: '#F5F5F5', fontSize: 15, fontWeight: '700' },
+  showtimeMeta: { color: '#666', fontSize: 13, marginTop: 2 },
+
+  screenWrapper: { alignItems: 'center', marginBottom: 16, paddingHorizontal: 32 },
+  screenBar: {
+    width: '80%',
+    height: 4,
+    backgroundColor: '#3A3A3A',
+    borderRadius: 2,
+    marginBottom: 6,
+    shadowColor: '#fff',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
-  screenText: { color: '#aaa', fontSize: 11, letterSpacing: 4 },
-  grid: { paddingHorizontal: 12, paddingBottom: 16 },
-  seatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  rowLabel: { color: '#555', width: 20, fontSize: 12, textAlign: 'center' },
+  screenLabel: { color: '#555', fontSize: 10, fontWeight: '700', letterSpacing: 3 },
+
+  grid: { paddingHorizontal: 16, paddingBottom: 8 },
+  seatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  rowLabel: { color: '#555', width: 18, fontSize: 11, fontWeight: '700', marginRight: 4 },
   seat: {
-    width: 28,
-    height: 28,
-    borderRadius: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 6,
     margin: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.5,
   },
-  seatText: { color: '#fff', fontSize: 9 },
-  legend: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 8, gap: 16 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot: { width: 12, height: 12, borderRadius: 2 },
-  legendLabel: { color: '#aaa', fontSize: 11, textTransform: 'capitalize' },
+  seatText: { color: '#AEAEAE', fontSize: 9, fontWeight: '600' },
+
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendSeat: { width: 14, height: 14, borderRadius: 3, borderWidth: 1.5 },
+  legendLabel: { color: '#666', fontSize: 11 },
+
+  footerDivider: { backgroundColor: '#2A2A2A' },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#222',
+    paddingBottom: 20,
   },
-  totalText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  reserveButton: { backgroundColor: '#e50914', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 12 },
-  reserveButtonDisabled: { opacity: 0.6 },
-  reserveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
-  errorText: { color: '#e50914', fontSize: 16 },
+  selectedCount: { color: '#AEAEAE', fontSize: 13 },
+  totalAmount: { color: '#F5F5F5', fontSize: 20, fontWeight: '800', marginTop: 2 },
+  reserveButton: { borderRadius: 10 },
+  reserveContent: { paddingHorizontal: 8, paddingVertical: 4 },
+  reserveLabel: { fontSize: 15, fontWeight: '700' },
 });

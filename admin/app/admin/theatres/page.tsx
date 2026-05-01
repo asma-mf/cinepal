@@ -48,7 +48,7 @@ export default async function TheatresPage() {
         </div>
         <Button size="sm" asChild>
           <Link href="/admin/theatres?action=new">
-            <Plus data-icon="inline-start" />
+            <Plus className="mr-2 h-4 w-4" />
             Add Theatre
           </Link>
         </Button>
@@ -91,13 +91,13 @@ export default async function TheatresPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <Link href={`/admin/theatres?edit=${t._id}`}>
-                            <Edit data-icon="inline-start" />
+                            <Edit className="mr-2 h-4 w-4" />
                             Edit Details
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href={`/admin/theatres/${t._id}`}>
-                            <Settings data-icon="inline-start" />
+                            <Settings className="mr-2 h-4 w-4" />
                             Manage Halls
                           </Link>
                         </DropdownMenuItem>
