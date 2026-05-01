@@ -1,37 +1,23 @@
-// Admin layout: sidebar navigation
-import Link from 'next/link';
-import { UserButton } from '@clerk/nextjs';
-
-const navLinks = [
-  { href: '/admin/movies', label: 'Movies' },
-  { href: '/admin/theatres', label: 'Theatres' },
-  { href: '/admin/showtimes', label: 'Showtimes' },
-];
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { AdminSidebar } from '@/components/admin-sidebar';
+import { Separator } from '@/components/ui/separator';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
-        <div className="p-4 border-b border-gray-800">
-          <span className="text-red-500 font-bold text-xl">CinePal</span>
-          <span className="text-gray-400 text-sm ml-2">Admin</span>
+    <SidebarProvider>
+      <AdminSidebar />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <div className="flex-1">
+            <h2 className="text-sm font-medium text-muted-foreground">Dashboard</h2>
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4">
+          {children}
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="block px-3 py-2 rounded-md text-gray-300 hover:bg-gray-800 hover:text-white text-sm transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-gray-800">
-          <UserButton />
-        </div>
-      </aside>
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

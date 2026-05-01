@@ -2,7 +2,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function proxyRequest(
   req: NextRequest,

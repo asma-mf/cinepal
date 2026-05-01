@@ -42,7 +42,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { movieId, theatreId, hallId, date, startTime, format, price } = req.body;
+    const { movieId, theatreId, hallId, date, startDate, endDate, startTime, format, price, schedulingType } = req.body;
     const hall = await Hall.findById(hallId);
     if (!hall) return res.status(404).json({ error: 'Hall not found' });
 
@@ -53,10 +53,52 @@ router.post('/', requireAdmin, async (req, res) => {
       status: 'available',
     }));
 
-    const showtime = await Showtime.create({ movieId, theatreId, hallId, date, startTime, format, price, seats });
-    res.status(201).json(showtime);
+    if (schedulingType === 'range' && startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const createdShowtimes = [];
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const showtime = await Showtime.create({
+          movieId,
+          theatreId,
+          hallId,
+          date: new Date(d),
+          startTime,
+          format,
+          price,
+          seats,
+        });
+        createdShowtimes.push(showtime);
+      }
+      return res.status(201).json({ message: `${createdShowtimes.length} showtimes scheduled`, count: createdShowtimes.length });
+    } else {
+      const showtime = await Showtime.create({ movieId, theatreId, hallId, date, startTime, format, price, seats });
+      return res.status(201).json(showtime);
+    }
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.patch('/cancel-future/:movieId', requireAdmin, async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    const { fromDate } = req.body;
+    const dateLimit = fromDate ? new Date(fromDate) : new Date();
+    
+    const result = await Showtime.updateMany(
+      { 
+        movieId, 
+        date: { $gte: dateLimit },
+        status: 'active'
+      },
+      { status: 'cancelled' }
+    );
+
+    res.json({ message: `${result.modifiedCount} future showtimes cancelled`, count: result.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
