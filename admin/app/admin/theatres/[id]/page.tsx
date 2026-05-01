@@ -2,13 +2,7 @@
 import { adminFetch } from '@/lib/api';
 import TheatreEditForm from './TheatreEditForm';
 import HallsManager from './HallsManager';
-
-interface Hall {
-  _id: string;
-  name: string;
-  rows: number;
-  cols: number;
-}
+import type { Hall } from './HallsManager';
 
 interface TheatreWithHalls {
   _id: string;

@@ -31,7 +31,12 @@ const theatreSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
-type TheatreFormValues = z.infer<typeof theatreSchema>;
+type TheatreFormValues = {
+  name: string;
+  location: string;
+  address: string;
+  imageUrl?: string;
+};
 
 export default function TheatreModal() {
   const router = useRouter();
@@ -45,7 +50,7 @@ export default function TheatreModal() {
   const [imageUrl, setImageUrl] = useState('');
 
   const form = useForm<TheatreFormValues>({
-    resolver: zodResolver(theatreSchema),
+    resolver: zodResolver(theatreSchema as any),
     defaultValues: {
       name: '',
       location: '',

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 // Showtimes list page with movie filter
 import Link from 'next/link';
 import { CalendarDays, Plus, Info } from 'lucide-react';
@@ -28,6 +29,8 @@ import {
 
 import DeleteShowtimeButton from './DeleteShowtimeButton';
 import ShowtimeModal from './ShowtimeModal';
+
+export const dynamic = 'force-dynamic';
 
 interface Showtime {
   _id: string;
@@ -164,7 +167,9 @@ export default async function ShowtimesPage() {
         </CardContent>
       </Card>
 
-      <ShowtimeModal movies={movies} theatres={theatres} />
+      <Suspense fallback={null}>
+        <ShowtimeModal movies={movies} theatres={theatres} />
+      </Suspense>
     </div>
   );
 }

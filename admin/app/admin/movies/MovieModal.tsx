@@ -34,18 +34,26 @@ const movieSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   genre: z.string().min(1, 'At least one genre is required'),
   language: z.string().min(1, 'Language is required'),
-  duration: z.coerce.number().min(1, 'Duration must be greater than 0'),
+  duration: z.preprocess((val) => Number(val), z.number().min(1, 'Duration must be greater than 0')),
   releaseDate: z.string().min(1, 'Release date is required'),
   status: z.enum(['now_showing', 'coming_soon']),
-  cast: z.array(z.object({
-    name: z.string(),
-    profileUrl: z.string().optional().nullable(),
-  })).default([]),
-  rating: z.coerce.number().min(0, 'Rating cannot be negative').max(10, 'Rating cannot exceed 10').optional().or(z.literal('')),
+  cast: z.array(z.any()),
+  rating: z.preprocess((val) => val === '' ? undefined : Number(val), z.number().min(0).max(10).optional()),
   featured: z.boolean().default(false),
 });
 
-type MovieFormValues = z.infer<typeof movieSchema>;
+type MovieFormValues = {
+  title: string;
+  description: string;
+  genre: string;
+  language: string;
+  duration: number;
+  releaseDate: string;
+  status: 'now_showing' | 'coming_soon';
+  cast: { name: string; profileUrl?: string | null }[];
+  rating: number | string;
+  featured: boolean;
+};
 
 export default function MovieModal() {
   const router = useRouter();
@@ -59,7 +67,7 @@ export default function MovieModal() {
   const [posterUrl, setPosterUrl] = useState('');
 
   const form = useForm<MovieFormValues>({
-    resolver: zodResolver(movieSchema),
+    resolver: zodResolver(movieSchema as any),
     defaultValues: {
       title: '',
       description: '',

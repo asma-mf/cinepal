@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 // Theatres list page
 import Link from 'next/link';
 import { adminFetch } from '@/lib/api';
@@ -17,6 +18,8 @@ import { Plus, MapPin, Building2 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import TheatreModal from './TheatreModal';
 import { TheatreActions } from './TheatreActions';
+
+export const dynamic = 'force-dynamic';
 
 interface Theatre {
   _id: string;
@@ -104,7 +107,9 @@ export default async function TheatresPage() {
         </CardContent>
       </Card>
 
-      <TheatreModal />
+      <Suspense fallback={null}>
+        <TheatreModal />
+      </Suspense>
     </div>
   );
 }
