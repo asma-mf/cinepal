@@ -1,6 +1,6 @@
 // My bookings screen: upcoming and past bookings with Paper Cards
 import React from 'react';
-import { View, FlatList, Image, StyleSheet } from 'react-native';
+import { View, FlatList, Image, StyleSheet, RefreshControl } from 'react-native';
 import { Text, Chip, ActivityIndicator, Surface, useTheme, Divider } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -69,11 +69,18 @@ const SectionHeader = ({ title, count }) => (
 export default function MyBookingsScreen({ navigation }) {
   const { authRequest } = useApiClient();
   const theme = useTheme();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['my-bookings'],
     queryFn: () => authRequest({ method: 'GET', url: '/bookings/mine' }).then((r) => r.data),
   });
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   const upcoming = (data || []).filter(
     (b) => b.status === 'confirmed' && b.showtimeId?.date && new Date(b.showtimeId.date) > new Date()
@@ -133,11 +140,18 @@ export default function MyBookingsScreen({ navigation }) {
       {data && data.length > 0 && (
         <FlatList
           data={sections}
-          keyExtractor={(item) => item._id || item.id}
+          keyExtractor={(item) => item.id || item._id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          onRefresh={refetch}
-          refreshing={isLoading}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh} 
+              colors={['#E50914']} 
+              tintColor="#E50914"
+              progressBackgroundColor="#1C1C1C"
+            />
+          }
           showsVerticalScrollIndicator={false}
         />
       )}

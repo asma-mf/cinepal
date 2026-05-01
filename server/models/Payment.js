@@ -7,7 +7,7 @@ const PaymentSchema = new mongoose.Schema(
     userId: { type: String, required: true },
     amount: { type: Number, required: true },
     method: { type: String, default: 'card' },
-    status: { type: String, enum: ['success', 'refunded'], default: 'success' },
+    status: { type: String, enum: ['success', 'refunded', 'partial_refund'], default: 'success' },
     transactionId: { type: String, required: true },
   },
   { timestamps: true }

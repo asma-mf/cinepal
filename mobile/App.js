@@ -25,6 +25,8 @@ import BookingDetailScreen from './src/screens/BookingDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
+import MovieCarouselScreen from './src/screens/MovieCarouselScreen';
+import CinemasListScreen from './src/screens/CinemasListScreen';
 
 // Custom dark Cinema theme
 const CinePalTheme = {
@@ -97,6 +99,8 @@ function HomeStack() {
       <Stack.Screen name="PendingBooking" component={PendingBookingScreen} options={{ title: 'Complete Booking', headerLeft: null }} />
       <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Payment' }} />
       <Stack.Screen name="Ticket" component={TicketScreen} options={{ title: 'Your Ticket', headerLeft: null }} />
+      <Stack.Screen name="MovieCarousel" component={MovieCarouselScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CinemasList" component={CinemasListScreen} options={{ title: 'Our Cinemas' }} />
     </Stack.Navigator>
   );
 }

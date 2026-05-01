@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { adminFetch } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
-import DeleteMovieMenuItem from './DeleteMovieButton';
+import MovieActions from './MovieActions';
 import MovieModal from './MovieModal';
 import { 
   Table, 
@@ -14,23 +14,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
   Plus, 
-  Edit, 
   Film, 
-  PlayCircle, 
-  CalendarClock, 
   Star,
-  MoreHorizontal
+  Play,
+  Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface Movie {
   _id: string;
@@ -40,6 +30,8 @@ interface Movie {
   duration: number;
   status: string;
   rating?: number;
+  featured?: boolean;
+  posterUrl?: string;
 }
 
 export default async function MoviesPage() {
@@ -90,7 +82,7 @@ export default async function MoviesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Now Showing</CardTitle>
-            <PlayCircle className="h-4 w-4 text-muted-foreground" />
+            <Play className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{nowShowing}</div>
@@ -100,7 +92,7 @@ export default async function MoviesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Coming Soon</CardTitle>
-            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{comingSoon}</div>
@@ -114,22 +106,21 @@ export default async function MoviesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{avgRating}</div>
-            <p className="text-xs text-muted-foreground">Out of 10</p>
+            <p className="text-xs text-muted-foreground">Based on audience reviews</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Data Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Catalog</CardTitle>
-          <CardDescription>A list of all movies available in the system.</CardDescription>
+          <CardTitle>Movie Catalogue</CardTitle>
+          <CardDescription>Manage your cinema's available and upcoming movies.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Movie</TableHead>
+                <TableHead>Title</TableHead>
                 <TableHead className="hidden md:table-cell">Genre</TableHead>
                 <TableHead className="hidden md:table-cell">Language</TableHead>
                 <TableHead className="hidden sm:table-cell">Duration</TableHead>
@@ -144,6 +135,7 @@ export default async function MoviesPage() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9 rounded-md bg-muted">
+                        <AvatarImage src={movie.posterUrl} alt={movie.title} className="object-cover" />
                         <AvatarFallback className="rounded-md bg-primary/10 text-primary font-medium text-xs">
                           {movie.title.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -161,9 +153,16 @@ export default async function MoviesPage() {
                   <TableCell className="hidden md:table-cell text-muted-foreground">{movie.language}</TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{movie.duration} min</TableCell>
                   <TableCell>
-                    <Badge variant={movie.status === 'now_showing' ? 'default' : 'secondary'}>
-                      {movie.status.replace('_', ' ')}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <Badge variant={movie.status === 'now_showing' ? 'default' : 'secondary'}>
+                        {movie.status.replace('_', ' ')}
+                      </Badge>
+                      {movie.featured && (
+                        <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] uppercase tracking-wider">
+                          Featured
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-muted-foreground">
                     <div className="flex items-center gap-1">
@@ -172,25 +171,7 @@ export default async function MoviesPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/movies?edit=${movie._id}`}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Movie
-                          </Link>
-                        </DropdownMenuItem>
-                        <DeleteMovieMenuItem id={movie._id} />
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <MovieActions movie={movie} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -214,4 +195,3 @@ export default async function MoviesPage() {
     </div>
   );
 }
-

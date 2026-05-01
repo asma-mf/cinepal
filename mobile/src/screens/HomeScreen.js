@@ -1,90 +1,159 @@
-// Home screen: featured hero + Now Showing / Coming Soon movie carousels
 import React from 'react';
-import { View, FlatList, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, FlatList, Image, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, RefreshControl } from 'react-native';
 import { Text, Card, ActivityIndicator, Chip, useTheme, Divider, Searchbar } from 'react-native-paper';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../services/api';
 
-const fetchMovies = (status) => apiClient.get(`/movies?status=${status}`).then((r) => r.data);
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ITEM_WIDTH = SCREEN_WIDTH * 0.75;
+const ITEM_SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
 
-const MovieCard = ({ movie, onPress }) => (
-  <TouchableOpacity onPress={() => onPress(movie)} style={styles.cardWrapper} activeOpacity={0.85}>
-    <View style={styles.posterContainer}>
-      <Image
-        source={{ uri: movie.posterUrl || 'https://via.placeholder.com/140x210' }}
-        style={styles.poster}
-      />
-      {movie.rating && (
-        <View style={styles.ratingBadge}>
-          <MaterialCommunityIcons name="star" size={10} color="#FFB800" />
-          <Text style={styles.ratingText}>{movie.rating}</Text>
-        </View>
-      )}
-    </View>
-    <Text style={styles.cardTitle} numberOfLines={2}>{movie.title}</Text>
-    <Text style={styles.cardGenre} numberOfLines={1}>
-      {(movie.genre || []).slice(0, 2).join(' · ')}
-    </Text>
-  </TouchableOpacity>
-);
+const fetchMovies = (params) => apiClient.get('/movies', { params }).then((r) => r.data);
 
-const FeaturedBanner = ({ movie, onPress }) => {
-  if (!movie) return null;
+const MovieCard = ({ movie, onPress, size = 'normal' }) => {
+  const width = size === 'large' ? 160 : 130;
+  const height = size === 'large' ? 240 : 195;
+  
   return (
-    <TouchableOpacity onPress={() => onPress(movie)} activeOpacity={0.9}>
-      <View style={styles.heroContainer}>
+    <TouchableOpacity onPress={() => onPress(movie)} style={[styles.cardWrapper, { width }]} activeOpacity={0.85}>
+      <View style={styles.posterContainer}>
         <Image
-          source={{ uri: movie.posterUrl || 'https://via.placeholder.com/400x220' }}
-          style={styles.heroPoster}
-          blurRadius={0}
+          source={{ uri: movie.posterUrl || 'https://via.placeholder.com/140x210' }}
+          style={[styles.poster, { width, height }]}
         />
-        <View style={styles.heroOverlay} />
-        <View style={styles.heroContent}>
-          <View style={styles.heroMeta}>
-            <View style={styles.nowShowingBadge}>
-              <Text style={styles.nowShowingText}>NOW SHOWING</Text>
-            </View>
-            {movie.format && (
-              <Chip compact textStyle={{ fontSize: 10, color: '#FFB800' }} style={styles.formatChip}>
-                {movie.format}
-              </Chip>
-            )}
+        {movie.rating && (
+          <View style={styles.ratingBadge}>
+            <MaterialCommunityIcons name="star" size={10} color="#FFB800" />
+            <Text style={styles.ratingText}>{movie.rating}</Text>
           </View>
-          <Text style={styles.heroTitle} numberOfLines={2}>{movie.title}</Text>
-          <View style={styles.heroMetaRow}>
-            {movie.rating != null && (
-              <View style={styles.heroRating}>
-                <MaterialCommunityIcons name="star" size={14} color="#FFB800" />
-                <Text style={styles.heroRatingText}>{movie.rating}/10</Text>
-              </View>
-            )}
-            <Text style={styles.heroDuration}>{movie.duration} min</Text>
-            <Text style={styles.heroLang}>{movie.language}</Text>
-          </View>
-        </View>
+        )}
       </View>
+      <Text style={styles.cardTitle} numberOfLines={2}>{movie.title}</Text>
+      <Text style={styles.cardGenre} numberOfLines={1}>
+        {(movie.genre || []).slice(0, 2).join(' · ')}
+      </Text>
     </TouchableOpacity>
   );
 };
 
-const SectionRow = ({ title, status, onMoviePress, featured }) => {
+const FeaturedCarousel = ({ movies, onPress }) => {
+  const scrollX = React.useRef(new Animated.Value(0)).current;
+  const flatListRef = React.useRef(null);
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!movies || movies.length === 0) return;
+
+    const intervalId = setInterval(() => {
+      let nextIndex = currentIndex + 1;
+      if (nextIndex >= movies.length) {
+        nextIndex = 0;
+      }
+      
+      flatListRef.current?.scrollToIndex({
+        index: nextIndex,
+        animated: true,
+      });
+      setCurrentIndex(nextIndex);
+    }, 4000); // Auto-scroll every 4 seconds
+
+    return () => clearInterval(intervalId);
+  }, [currentIndex, movies]);
+
+  if (!movies || movies.length === 0) return null;
+
+  return (
+    <View style={styles.featuredContainer}>
+      <Animated.FlatList
+        ref={flatListRef}
+        data={movies}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={SCREEN_WIDTH}
+        decelerationRate="fast"
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: true }
+        )}
+        onMomentumScrollEnd={(event) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+          setCurrentIndex(index);
+        }}
+        getItemLayout={(data, index) => ({
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
+          index,
+        })}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item, index }) => {
+          const inputRange = [
+            (index - 1) * SCREEN_WIDTH,
+            index * SCREEN_WIDTH,
+            (index + 1) * SCREEN_WIDTH,
+          ];
+
+          const scale = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.9, 1, 0.9],
+          });
+
+          const opacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.5, 1, 0.5],
+          });
+
+          return (
+            <TouchableOpacity 
+              activeOpacity={0.9} 
+              onPress={() => onPress(item)}
+              style={{ width: SCREEN_WIDTH, alignItems: 'center' }}
+            >
+              <Animated.View style={[styles.heroContainer, { transform: [{ scale }], opacity }]}>
+                <Image
+                  source={{ uri: item.posterUrl || 'https://via.placeholder.com/400x220' }}
+                  style={styles.heroPoster}
+                />
+                <View style={styles.heroOverlay} />
+                <View style={styles.heroContent}>
+                  <View style={styles.heroMeta}>
+                    <View style={styles.featuredBadge}>
+                      <MaterialCommunityIcons name="star-circle" size={12} color="#fff" />
+                      <Text style={styles.featuredBadgeText}>FEATURED</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.heroTitle} numberOfLines={1}>{item.title}</Text>
+                  <View style={styles.heroMetaRow}>
+                    <Text style={styles.heroGenre}>{(item.genre || []).slice(0, 2).join(', ')}</Text>
+                    <Text style={styles.heroDot}>•</Text>
+                    <Text style={styles.heroDuration}>{item.duration} min</Text>
+                  </View>
+                </View>
+              </Animated.View>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </View>
+  );
+};
+
+const SectionRow = ({ title, status, onMoviePress, navigation, featured }) => {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['movies', status],
-    queryFn: () => fetchMovies(status),
+    queryFn: () => fetchMovies({ status }),
   });
 
   const movies = data || [];
 
   return (
     <View style={styles.section}>
-      {status === 'now_showing' && !isLoading && movies.length > 0 && (
-        <FeaturedBanner movie={movies[0]} onPress={onMoviePress} />
-      )}
       <View style={styles.sectionHeader}>
         <Text variant="titleMedium" style={styles.sectionTitle}>{title}</Text>
-        <Text style={styles.seeAll}>See all</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('MovieCarousel', { status, title })}>
+          <Text style={styles.seeAll}>See all</Text>
+        </TouchableOpacity>
       </View>
       {isLoading && <ActivityIndicator style={{ marginVertical: 20 }} />}
       {isError && (
@@ -93,11 +162,71 @@ const SectionRow = ({ title, status, onMoviePress, featured }) => {
           <Text style={styles.errorText}> Failed to load</Text>
         </View>
       )}
+      {
+        !isLoading && !isError && movies.length === 0 && (
+          <View style={styles.errorRow}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#dbdbdbff" />
+            <Text className='w-full text-white text-center'> No movies found</Text>
+          </View>
+        )
+      }
       {movies.length > 0 && (
         <FlatList
           data={movies}
           keyExtractor={(item) => item._id}
-          renderItem={({ item }) => <MovieCard movie={item} onPress={onMoviePress} />}
+          renderItem={({ item }) => <MovieCard movie={item} onPress={onMoviePress} size="large" />}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+        />
+      )}
+    </View>
+  );
+};
+
+const CinemasSection = ({ navigation }) => {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['theatres'],
+    queryFn: () => apiClient.get('/theatres').then(r => r.data),
+  });
+
+  const theatres = data || [];
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>Our Cinemas</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('CinemasList')}>
+          <Text style={styles.seeAll}>See all</Text>
+        </TouchableOpacity>
+      </View>
+      {isLoading && <ActivityIndicator style={{ marginVertical: 20 }} />}
+      {isError && (
+        <View style={styles.errorRow}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#E50914" />
+          <Text style={styles.errorText}> Failed to load</Text>
+        </View>
+      )}
+      {theatres.length > 0 && (
+        <FlatList
+          data={theatres}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={[styles.cardWrapper, { width: 220 }]} 
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('CinemasList')}
+            >
+              <View style={[styles.posterContainer, { height: 130 }]}>
+                <Image
+                  source={{ uri: item.imageUrl || 'https://via.placeholder.com/220x130?text=Cinema' }}
+                  style={[styles.poster, { width: 220, height: 130 }]}
+                />
+              </View>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.cardGenre} numberOfLines={1}>{item.location}</Text>
+            </TouchableOpacity>
+          )}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.list}
@@ -111,6 +240,8 @@ export default function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchActive, setIsSearchActive] = React.useState(false);
   const [debouncedQuery, setDebouncedQuery] = React.useState('');
+  const [refreshing, setRefreshing] = React.useState(false);
+  const queryClient = useQueryClient();
 
   const handleMoviePress = (movie) => navigation.navigate('MovieDetail', { movieId: movie._id });
 
@@ -122,10 +253,22 @@ export default function HomeScreen({ navigation }) {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['movies'] });
+    await queryClient.invalidateQueries({ queryKey: ['theatres'] });
+    setRefreshing(false);
+  }, [queryClient]);
+
   const { data: searchResults, isLoading: isSearchLoading } = useQuery({
     queryKey: ['movies-search', debouncedQuery],
     queryFn: () => apiClient.get(`/movies/search?q=${debouncedQuery}`).then(r => r.data),
     enabled: debouncedQuery.length > 0,
+  });
+
+  const { data: featuredMovies } = useQuery({
+    queryKey: ['movies-featured'],
+    queryFn: () => fetchMovies({ featured: true }),
   });
 
   return (
@@ -161,7 +304,10 @@ export default function HomeScreen({ navigation }) {
         )}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E50914" />}
+      >
         {isSearchActive && debouncedQuery.length > 0 ? (
           <View style={styles.searchResultsContainer}>
             <View style={styles.sectionHeader}>
@@ -192,8 +338,10 @@ export default function HomeScreen({ navigation }) {
 
         {!isSearchActive && (
           <>
-            <SectionRow title="Now Showing" status="now_showing" onMoviePress={handleMoviePress} featured />
-            <SectionRow title="Coming Soon" status="coming_soon" onMoviePress={handleMoviePress} />
+            <FeaturedCarousel movies={featuredMovies} onPress={handleMoviePress} />
+            <SectionRow title="Now Showing" status="now_showing" onMoviePress={handleMoviePress} navigation={navigation} />
+            <SectionRow title="Coming Soon" status="coming_soon" onMoviePress={handleMoviePress} navigation={navigation} />
+            <CinemasSection navigation={navigation} />
           </>
         )}
 
@@ -219,45 +367,54 @@ const styles = StyleSheet.create({
   },
   headerRight: { padding: 4 },
 
-  // Hero/Featured Banner
+  // Featured Carousel
+  featuredContainer: {
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
   heroContainer: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 16,
+    width: SCREEN_WIDTH - 40,
+    borderRadius: 20,
     overflow: 'hidden',
-    height: 220,
+    height: 200,
+    backgroundColor: '#1C1C1C',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   heroPoster: { width: '100%', height: '100%', resizeMode: 'cover' },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   heroContent: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
+    padding: 20,
   },
-  heroMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 },
-  nowShowingBadge: {
-    backgroundColor: '#E50914',
+  heroMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  featuredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(229, 9, 20, 0.9)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
   },
-  nowShowingText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  formatChip: { backgroundColor: 'transparent', borderColor: '#FFB800', borderWidth: 1, height: 22 },
-  heroTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginBottom: 6 },
-  heroMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  heroRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  heroRatingText: { color: '#FFB800', fontSize: 12, fontWeight: '600' },
+  featuredBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  heroTitle: { color: '#fff', fontSize: 24, fontWeight: '800', marginBottom: 4 },
+  heroMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroGenre: { color: '#E0E0E0', fontSize: 12, fontWeight: '500' },
+  heroDot: { color: '#AEAEAE', fontSize: 12 },
   heroDuration: { color: '#AEAEAE', fontSize: 12 },
-  heroLang: { color: '#AEAEAE', fontSize: 12 },
 
   // Section
-  section: { marginBottom: 20 },
+  section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -265,29 +422,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  sectionTitle: { color: '#F5F5F5', fontWeight: '700', fontSize: 17 },
-  seeAll: { color: '#E50914', fontSize: 13, fontWeight: '600' },
+  sectionTitle: { color: '#F5F5F5', fontWeight: '800', fontSize: 18, letterSpacing: 0.5 },
+  seeAll: { color: '#E50914', fontSize: 14, fontWeight: '700' },
   list: { paddingHorizontal: 16 },
 
   // Movie Card
-  cardWrapper: { width: 130, marginRight: 14 },
-  posterContainer: { position: 'relative' },
-  poster: { width: 130, height: 195, borderRadius: 10, backgroundColor: '#1C1C1C' },
+  cardWrapper: { marginRight: 16 },
+  posterContainer: { 
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1C',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  poster: { resizeMode: 'cover' },
   ratingBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.8)',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 3,
   },
-  ratingText: { color: '#FFB800', fontSize: 10, fontWeight: '700' },
-  cardTitle: { color: '#E0E0E0', fontSize: 12, fontWeight: '600', marginTop: 8 },
-  cardGenre: { color: '#666', fontSize: 10, marginTop: 2 },
+  ratingText: { color: '#FFB800', fontSize: 11, fontWeight: '800' },
+  cardTitle: { color: '#F5F5F5', fontSize: 14, fontWeight: '700', marginTop: 10, lineHeight: 18 },
+  cardGenre: { color: '#777', fontSize: 12, marginTop: 4, fontWeight: '500' },
 
   // Error
   errorRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginVertical: 8 },
@@ -295,9 +462,9 @@ const styles = StyleSheet.create({
   
   // Search
   searchHeaderContainer: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  searchBar: { flex: 1, height: 40, backgroundColor: '#1C1C1C', borderRadius: 8 },
-  searchBarInput: { minHeight: 0, color: '#F5F5F5', fontSize: 14 },
+  searchBar: { flex: 1, height: 44, backgroundColor: '#1C1C1C', borderRadius: 12 },
+  searchBarInput: { minHeight: 0, color: '#F5F5F5', fontSize: 15 },
   searchResultsContainer: { minHeight: 200 },
   emptySearch: { alignItems: 'center', paddingVertical: 40, gap: 12 },
-  emptySearchText: { color: '#555', fontSize: 14, fontWeight: '600' },
+  emptySearchText: { color: '#555', fontSize: 16, fontWeight: '600' },
 });

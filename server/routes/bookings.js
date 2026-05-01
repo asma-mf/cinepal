@@ -5,6 +5,25 @@ const Booking = require('../models/Booking');
 const Showtime = require('../models/Showtime');
 const { requireAuth } = require('../middleware/auth');
 
+// Return all bookings (for admin dashboard)
+router.get('/', requireAuth, async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate({
+        path: 'showtimeId',
+        populate: [
+          { path: 'movieId', select: 'title posterUrl' },
+          { path: 'theatreId', select: 'name location' },
+          { path: 'hallId', select: 'name' },
+        ],
+      })
+      .sort({ createdAt: -1 });
+    res.json(bookings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Return all bookings for the current user
 router.get('/mine', requireAuth, async (req, res) => {
   try {
@@ -193,7 +212,15 @@ router.put('/:id/cancel', requireAuth, async (req, res) => {
     if (booking.status !== 'confirmed') {
       return res.status(400).json({ error: 'Only confirmed bookings can be cancelled' });
     }
-    if (new Date(booking.showtimeId.date) <= new Date()) {
+    const showDate = new Date(booking.showtimeId.date);
+    const [hours, minutes] = booking.showtimeId.startTime.split(':');
+    showDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+
+    const now = new Date();
+    const timeDiffMs = showDate.getTime() - now.getTime();
+    const timeDiffHours = timeDiffMs / (1000 * 60 * 60);
+
+    if (timeDiffHours <= 0) {
       return res.status(400).json({ error: 'Cannot cancel past showtimes' });
     }
 
@@ -209,15 +236,25 @@ router.put('/:id/cancel', requireAuth, async (req, res) => {
     booking.status = 'cancelled';
     await booking.save();
 
-    // Refund the associated payment if it exists
+    // Handle refunds
     const Payment = require('../models/Payment');
     const payment = await Payment.findOne({ bookingId: booking._id });
+    
+    let refundAmount = 0;
+    let message = 'Booking cancelled. No refund issued as it is less than 24 hours before showtime.';
+
     if (payment) {
-      payment.status = 'refunded';
+      if (timeDiffHours >= 24) {
+        refundAmount = payment.amount / 2;
+        payment.status = 'partial_refund';
+        message = `Booking cancelled. A 50% refund (LKR ${refundAmount}) has been initiated.`;
+      } else {
+        // Status remains 'success' (no refund)
+      }
       await payment.save();
     }
 
-    res.json(booking);
+    res.json({ booking, message, refundAmount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

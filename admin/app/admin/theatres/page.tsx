@@ -13,22 +13,17 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Plus, Edit, Settings, MoreHorizontal, MapPin } from 'lucide-react';
+import { Plus, MapPin, Building2 } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import TheatreModal from './TheatreModal';
+import { TheatreActions } from './TheatreActions';
 
 interface Theatre {
   _id: string;
   name: string;
   location: string;
   address: string;
+  imageUrl?: string;
 }
 
 export default async function TheatresPage() {
@@ -68,7 +63,17 @@ export default async function TheatresPage() {
             <TableBody>
               {theatres.map((t) => (
                 <TableRow key={t._id}>
-                  <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 rounded-md border bg-muted">
+                        <AvatarImage src={t.imageUrl} alt={t.name} className="object-cover" />
+                        <AvatarFallback className="rounded-md bg-primary/10 text-primary">
+                          <Building2 className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{t.name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center text-muted-foreground">
                       <MapPin className="mr-1 h-3 w-3" />
@@ -79,30 +84,7 @@ export default async function TheatresPage() {
                     {t.address}
                   </TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/theatres?edit=${t._id}`}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Details
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/theatres/${t._id}`}>
-                            <Settings className="mr-2 h-4 w-4" />
-                            Manage Halls
-                          </Link>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <TheatreActions theatreId={t._id} />
                   </TableCell>
                 </TableRow>
               ))}

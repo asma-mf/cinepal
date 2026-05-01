@@ -1,6 +1,6 @@
 // Booking detail screen: full info, cancel button for confirmed future bookings
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { Text, Button, Surface, Divider, ActivityIndicator, Chip, useTheme, Snackbar } from 'react-native-paper';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,25 +38,47 @@ export default function BookingDetailScreen({ route, navigation }) {
 
   const showtime = booking?.showtimeId;
   const movie = showtime?.movieId;
+  let showDate = null;
+  if (showtime?.date && showtime?.startTime) {
+    showDate = new Date(showtime.date);
+    const [hours, minutes] = showtime.startTime.split(':');
+    showDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+  }
+
   const isFutureConfirmed =
     booking?.status === 'confirmed' &&
-    showtime?.date &&
-    new Date(showtime.date) > new Date();
+    showDate &&
+    showDate > new Date();
 
   const statusConfig = STATUS_CONFIG[booking?.status] || STATUS_CONFIG.pending;
 
-  const handleCancel = async () => {
-    setCancelling(true);
-    try {
-      await authRequest({ method: 'PUT', url: `/bookings/${bookingId}/cancel` });
-      queryClient.invalidateQueries(['my-bookings']);
-      queryClient.invalidateQueries(['booking', bookingId]);
-      navigation.goBack();
-    } catch (err) {
-      setSnackbar({ visible: true, message: err.response?.data?.error || 'Could not cancel booking.' });
-    } finally {
-      setCancelling(false);
-    }
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking? If the showtime is more than 24 hours away, you will receive a 50% refund. Otherwise, no refund will be issued.',
+      [
+        { text: 'No, Keep It', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              const res = await authRequest({ method: 'PUT', url: `/bookings/${bookingId}/cancel` });
+              queryClient.invalidateQueries(['my-bookings']);
+              queryClient.invalidateQueries(['booking', bookingId]);
+              Alert.alert('Cancellation Successful', res.data?.message || 'Booking cancelled.', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            } catch (err) {
+              setSnackbar({ visible: true, message: err.response?.data?.error || 'Could not cancel booking.' });
+            } finally {
+              setCancelling(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (isLoading) {
@@ -85,22 +107,30 @@ export default function BookingDetailScreen({ route, navigation }) {
   const seatList = booking.seats?.map((s) => `${s.row}${s.col}`).join(', ') || '—';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* Movie title header */}
-        <Text variant="headlineSmall" style={styles.movieTitle} numberOfLines={2}>
-          {movie?.title || '—'}
-        </Text>
+        <View style={styles.backdropContainer}>
+          <Image
+            source={{ uri: movie?.backdropUrl || movie?.posterUrl || 'https://via.placeholder.com/600x300' }}
+            style={styles.backdropImage}
+          />
+          <View style={styles.overlay} />
+          <View style={styles.backdropContent}>
+            <Text variant="headlineMedium" style={styles.movieTitle} numberOfLines={2}>
+              {movie?.title || '—'}
+            </Text>
+            <Chip
+              icon={statusConfig.icon}
+              style={[styles.statusChip, { backgroundColor: statusConfig.color + '22' }]}
+              textStyle={[styles.statusChipText, { color: statusConfig.color }]}
+            >
+              {statusConfig.label}
+            </Chip>
+          </View>
+        </View>
 
-        {/* Status chip */}
-        <Chip
-          icon={statusConfig.icon}
-          style={[styles.statusChip, { backgroundColor: statusConfig.color + '22' }]}
-          textStyle={[styles.statusChipText, { color: statusConfig.color }]}
-        >
-          {statusConfig.label}
-        </Chip>
+        <View style={styles.contentContainer}>
 
         {/* Showtime info */}
         <Surface style={styles.card} elevation={1}>
@@ -161,6 +191,8 @@ export default function BookingDetailScreen({ route, navigation }) {
           </Button>
         )}
 
+        </View>
+        
         <View style={{ height: 24 }} />
       </ScrollView>
 
@@ -172,17 +204,40 @@ export default function BookingDetailScreen({ route, navigation }) {
       >
         {snackbar.message}
       </Snackbar>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scroll: { padding: 20 },
+  scroll: { paddingBottom: 40 },
+  contentContainer: { paddingHorizontal: 20 },
 
-  movieTitle: { color: '#F5F5F5', fontWeight: '800', marginBottom: 12 },
-  statusChip: { alignSelf: 'flex-start', marginBottom: 20 },
+  backdropContainer: {
+    width: '100%',
+    height: 300,
+    position: 'relative',
+    marginBottom: 20,
+  },
+  backdropImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  backdropContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+  },
+  movieTitle: { color: '#F5F5F5', fontWeight: '900', marginBottom: 12, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  statusChip: { alignSelf: 'flex-start' },
   statusChipText: { fontWeight: '700', fontSize: 12 },
 
   card: {
