@@ -17,6 +17,8 @@ const HallSchema = new mongoose.Schema(
     rows: { type: Number, required: true },
     cols: { type: Number, required: true },
     seatLayout: [SeatSchema],
+    rowBreaks: { type: [Number], default: [] },
+    colBreaks: { type: [Number], default: [] },
   },
   { timestamps: true }
 );

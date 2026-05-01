@@ -116,16 +116,26 @@ export default function MovieDetailScreen({ route, navigation }) {
             <>
               <Divider style={styles.divider} />
               <Text variant="labelLarge" style={styles.sectionLabel}>Cast</Text>
-              <View style={styles.castRow}>
-                {movie.cast.map((name, i) => (
-                  <View key={i} style={styles.castItem}>
-                    <View style={styles.castAvatar}>
-                      <Text style={styles.castInitial}>{name[0]}</Text>
-                    </View>
-                    <Text style={styles.castName} numberOfLines={2}>{name}</Text>
-                  </View>
-                ))}
-              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.castScroll}>
+                <View style={styles.castRow}>
+                  {movie.cast.map((actor, i) => {
+                    const name = typeof actor === 'string' ? actor : actor.name;
+                    const profileUrl = typeof actor === 'string' ? null : actor.profileUrl;
+                    return (
+                      <View key={i} style={styles.castItem}>
+                        <View style={styles.castAvatar}>
+                          {profileUrl ? (
+                            <Image source={{ uri: profileUrl }} style={styles.castImage} />
+                          ) : (
+                            <Text style={styles.castInitial}>{name ? name[0] : '?'}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.castName} numberOfLines={2}>{name || 'Unknown'}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
             </>
           )}
 
@@ -169,8 +179,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 120,
-    backgroundColor: 'transparent',
-    backgroundImage: 'linear-gradient(transparent, #0D0D0D)',
+    backgroundColor: 'rgba(13,13,13,0.8)', // Fallback for gradient
   },
 
   // Content
@@ -208,21 +217,24 @@ const styles = StyleSheet.create({
   description: { color: '#AEAEAE', fontSize: 14, lineHeight: 22 },
 
   // Cast
-  castRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  castItem: { alignItems: 'center', width: 64 },
+  castScroll: { marginHorizontal: -20, paddingHorizontal: 20 },
+  castRow: { flexDirection: 'row', paddingBottom: 10 },
+  castItem: { alignItems: 'center', width: 70, marginRight: 12 },
   castAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#2A2A2A',
     borderWidth: 2,
     borderColor: '#3A3A3A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    overflow: 'hidden',
   },
-  castInitial: { color: '#E50914', fontSize: 18, fontWeight: '700' },
-  castName: { color: '#AEAEAE', fontSize: 11, textAlign: 'center' },
+  castImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  castInitial: { color: '#E50914', fontSize: 20, fontWeight: '700' },
+  castName: { color: '#AEAEAE', fontSize: 11, textAlign: 'center', fontWeight: '500' },
 
   releaseDateRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 4 },
   releaseDate: { color: '#AEAEAE', fontSize: 13 },

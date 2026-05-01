@@ -54,11 +54,36 @@ const showtimeSchema = z.object({
   format: z.string().min(1, 'Format is required'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
 }).refine((data) => {
-  if (data.schedulingType === 'single') return !!data.date;
-  return !!data.startDate && !!data.endDate;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const oneYearFromNow = new Date();
+  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+  if (data.schedulingType === 'single') {
+    if (!data.date) return false;
+    const d = new Date(data.date);
+    return d >= today && d <= oneYearFromNow;
+  }
+  return true;
 }, {
-  message: "Required date fields are missing",
+  message: "Date must be between today and 1 year from now",
   path: ["date"]
+}).refine((data) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const oneYearFromNow = new Date();
+  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+  if (data.schedulingType === 'range') {
+    if (!data.startDate || !data.endDate) return false;
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    return start >= today && end >= start && end <= oneYearFromNow;
+  }
+  return true;
+}, {
+  message: "Invalid range: must be today or in the future (max 1 year), and end date must be after start date",
+  path: ["startDate"]
 });
 
 type ShowtimeFormValues = z.infer<typeof showtimeSchema>;
