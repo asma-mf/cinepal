@@ -28,18 +28,16 @@ export default async function TheatreDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">{theatre!.name}</h1>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-          <h2 className="text-lg font-semibold mb-4">Edit Theatre</h2>
-          <TheatreEditForm theatre={theatre!} />
-        </div>
-
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
         <div>
-          <HallsManager theatreId={id} halls={theatre!.halls || []} />
+          <h1 className="text-2xl font-bold tracking-tight">{theatre!.name} - Halls</h1>
+          <p className="text-sm text-muted-foreground">{theatre!.location} • {theatre!.address}</p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        <HallsManager theatreId={id} halls={theatre!.halls || []} />
       </div>
     </div>
   );

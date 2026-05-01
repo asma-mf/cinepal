@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '@clerk/expo';
 import { useCallback } from 'react';
 
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8080/api';
 
 const apiClient = axios.create({ baseURL: BASE_URL });
 

@@ -1,10 +1,33 @@
 // Showtimes list page with movie filter
 import Link from 'next/link';
+import { CalendarDays, Plus, Info } from 'lucide-react';
 import { adminFetch } from '@/lib/api';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants, Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+
 import DeleteShowtimeButton from './DeleteShowtimeButton';
+import ShowtimeModal from './ShowtimeModal';
 
 interface Showtime {
   _id: string;
@@ -20,60 +43,128 @@ interface Showtime {
 
 export default async function ShowtimesPage() {
   let showtimes: Showtime[] = [];
+  let movies: any[] = [];
+  let theatres: any[] = [];
+  
   try {
-    showtimes = await adminFetch('/showtimes');
-  } catch {
-    showtimes = [];
+    [showtimes, movies, theatres] = await Promise.all([
+      adminFetch('/showtimes'),
+      adminFetch('/movies'),
+      adminFetch('/theatres'),
+    ]);
+  } catch (err) {
+    console.error('Failed to fetch showtimes data', err);
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Showtimes</h1>
-        <Link href="/admin/showtimes/new" className={cn(buttonVariants())}>+ Schedule Showtime</Link>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Showtimes</h1>
+          <p className="text-muted-foreground">
+            Manage movie screenings, schedules, and ticket pricing.
+          </p>
+        </div>
+        <Link href="/admin/showtimes?action=new" className={cn(buttonVariants(), "gap-2")}>
+          <Plus className="w-4 h-4" />
+          Schedule Showtime
+        </Link>
       </div>
 
-      <div className="rounded-lg border border-gray-800 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-900 text-gray-400">
-            <tr>
-              <th className="text-left p-4">Movie</th>
-              <th className="text-left p-4">Theatre / Hall</th>
-              <th className="text-left p-4">Date</th>
-              <th className="text-left p-4">Time</th>
-              <th className="text-left p-4">Format</th>
-              <th className="text-left p-4">Price</th>
-              <th className="text-left p-4">Status</th>
-              <th className="text-right p-4">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {showtimes.map((s) => (
-              <tr key={s._id} className="border-t border-gray-800 hover:bg-gray-900/50">
-                <td className="p-4 font-medium">{s.movieId?.title || '—'}</td>
-                <td className="p-4 text-gray-400">{s.theatreId?.name} / {s.hallId?.name}</td>
-                <td className="p-4 text-gray-400">{new Date(s.date).toLocaleDateString()}</td>
-                <td className="p-4 text-gray-400">{s.startTime}</td>
-                <td className="p-4"><Badge variant="outline">{s.format}</Badge></td>
-                <td className="p-4 text-gray-400">LKR {s.price}</td>
-                <td className="p-4">
-                  <Badge variant={s.status === 'active' ? 'default' : 'destructive'}>
-                    {s.status}
-                  </Badge>
-                </td>
-                <td className="p-4 text-right">
-                  <DeleteShowtimeButton id={s._id} />
-                </td>
-              </tr>
-            ))}
-            {showtimes.length === 0 && (
-              <tr>
-                <td colSpan={8} className="p-8 text-center text-gray-500">No showtimes yet</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card className="bg-background/50 backdrop-blur-sm border-muted">
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-primary" />
+            Active Schedule
+          </CardTitle>
+          <CardDescription>
+            All currently scheduled screenings across all theatres.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {showtimes.length === 0 ? (
+            <Alert variant="default" className="bg-muted/30 border-muted">
+              <Info className="h-4 w-4" />
+              <AlertTitle>No showtimes scheduled</AlertTitle>
+              <AlertDescription>
+                Get started by clicking the "Schedule Showtime" button above.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="rounded-md border border-muted">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead>Movie</TableHead>
+                    <TableHead>Theatre / Hall</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Format</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {showtimes.map((s) => (
+                    <TableRow 
+                      key={s._id} 
+                      className={cn(
+                        "hover:bg-muted/10 transition-colors", 
+                        s.status === 'cancelled' && "opacity-60 grayscale-[0.5]"
+                      )}
+                    >
+                      <TableCell className="font-semibold">{s.movieId?.title || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {s.theatreId?.name} 
+                        <span className="mx-1.5 opacity-30">•</span>
+                        {s.hallId?.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">
+                        {new Date(s.date).toLocaleDateString(undefined, { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{s.startTime}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-xs font-normal">
+                          {s.format}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">
+                        LKR {s.price.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={s.status === 'active' ? 'default' : 'destructive'}
+                          className="capitalize"
+                        >
+                          {s.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link 
+                            href={`/admin/showtimes?edit=${s._id}`} 
+                            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), "h-8")}
+                          >
+                            Manage
+                          </Link>
+                          <DeleteShowtimeButton id={s._id} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <ShowtimeModal movies={movies} theatres={theatres} />
     </div>
   );
 }

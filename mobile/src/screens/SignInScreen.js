@@ -2,26 +2,40 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSignIn } from '@clerk/expo';
+import { useSignIn, useClerk, useAuth } from '@clerk/expo';
 
 export default function SignInScreen({ navigation }) {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn } = useSignIn();
+  const { setActive } = useClerk();
+  const { isLoaded } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSignIn = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      Alert.alert('Error', 'Clerk is not loaded yet. Please check your configuration.');
+      return;
+    }
     setLoading(true);
     try {
+      console.log('Attempting sign in for:', email);
       const result = await signIn.create({ identifier: email, password });
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
+      
+      if (result?.error) {
+        throw result.error;
+      }
+
+      if (signIn.status === 'complete') {
+        await setActive({ session: signIn.createdSessionId });
       } else {
+        console.warn('Sign in incomplete status:', signIn.status);
         Alert.alert('Sign In', 'Additional verification required');
       }
     } catch (err) {
-      Alert.alert('Error', err.errors?.[0]?.message || 'Sign in failed');
+      console.error('Sign in error:', JSON.stringify(err, null, 2));
+      const msg = err.errors?.[0]?.message || err.message || 'Sign in failed';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }

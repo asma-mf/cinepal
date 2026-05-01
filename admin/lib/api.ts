@@ -7,6 +7,7 @@ export async function adminFetch(path: string, options: RequestInit = {}) {
   const { getToken } = await auth();
   const token = await getToken();
 
+  console.log(`[adminFetch] fetching ${BASE}${path}`);
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers: {
@@ -19,6 +20,7 @@ export async function adminFetch(path: string, options: RequestInit = {}) {
 
   if (!res.ok) {
     const body = await res.text();
+    console.error(`[adminFetch] error on ${path}: ${res.status} ${body}`);
     throw new Error(`API ${path} failed: ${res.status} ${body}`);
   }
 

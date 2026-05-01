@@ -1,15 +1,16 @@
 // Root: Clerk auth provider, React Query client, and navigation tree
 import 'react-native-gesture-handler';
 import React from 'react';
+import { Text, ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ClerkProvider, useAuth } from '@clerk/expo';
-import { tokenCache } from '@clerk/expo/token-cache';
-import { Text, ActivityIndicator, View } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
+// Screens
 import HomeScreen from './src/screens/HomeScreen';
 import MovieDetailScreen from './src/screens/MovieDetailScreen';
 import ShowtimeSelectionScreen from './src/screens/ShowtimeSelectionScreen';
@@ -23,9 +24,37 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 
+// Token Cache implementation
+const tokenCache = {
+  async getToken(key) {
+    try {
+      const item = await SecureStore.getItemAsync(key);
+      if (item) {
+        console.log(`${key} was used 🔐 \n`);
+      } else {
+        console.log('No values stored under key: ' + key);
+      }
+      return item;
+    } catch (error) {
+      console.error('SecureStore get item error: ', error);
+      await SecureStore.deleteItemAsync(key);
+      return null;
+    }
+  },
+  async saveToken(key, value) {
+    try {
+      return SecureStore.setItemAsync(key, value);
+    } catch (err) {
+      console.error('SecureStore save item error: ', err);
+    }
+  },
+};
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
+
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const screenOptions = {
   headerStyle: { backgroundColor: '#0a0a0a' },
@@ -43,7 +72,7 @@ const tabScreenOptions = {
 function HomeStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'CinePal' }} />
+      <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'CinePal', headerShown: false }} />
       <Stack.Screen name="MovieDetail" component={MovieDetailScreen} options={{ title: 'Movie' }} />
       <Stack.Screen name="ShowtimeSelection" component={ShowtimeSelectionScreen} options={{ title: 'Showtimes' }} />
       <Stack.Screen name="SeatSelection" component={SeatSelectionScreen} options={{ title: 'Select Seats' }} />
@@ -57,7 +86,7 @@ function HomeStack() {
 function BookingsStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen name="MyBookings" component={MyBookingsScreen} options={{ title: 'My Bookings' }} />
+      <Stack.Screen name="MyBookings" component={MyBookingsScreen} options={{ title: 'My Bookings', headerShown: false}} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} options={{ title: 'Booking' }} />
     </Stack.Navigator>
   );
@@ -106,6 +135,7 @@ function AuthStack() {
 
 function RootNavigator() {
   const { isLoaded, isSignedIn } = useAuth();
+  console.log('RootNavigator: isLoaded =', isLoaded, 'isSignedIn =', isSignedIn);
 
   if (!isLoaded) {
     return (
@@ -123,9 +153,15 @@ function RootNavigator() {
 }
 
 export default function App() {
+  console.log('App: Initializing with Key:', CLERK_PUBLISHABLE_KEY ? CLERK_PUBLISHABLE_KEY.substring(0, 15) + '...' : 'MISSING');
+  
+  if (!CLERK_PUBLISHABLE_KEY) {
+    console.warn('WARNING: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not defined. Clerk will not work correctly.');
+  }
+
   return (
     <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder'}
+      publishableKey={CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder'}
       tokenCache={tokenCache}
     >
       <QueryClientProvider client={queryClient}>

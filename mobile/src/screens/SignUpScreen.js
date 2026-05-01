@@ -2,10 +2,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSignUp } from '@clerk/expo';
+import { useSignUp, useSignIn, useClerk, useAuth } from '@clerk/expo';
 
 export default function SignUpScreen({ navigation }) {
-  const { signUp, setActive, isLoaded } = useSignUp();
+  const { signUp } = useSignUp();
+  const { setActive } = useClerk();
+  const { isLoaded } = useAuth();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -14,31 +17,54 @@ export default function SignUpScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) {
+      Alert.alert('Error', 'Clerk is not loaded yet. Please try again.');
+      return;
+    }
     setLoading(true);
+    console.log('Attempting sign up for:', email);
     try {
-      await signUp.create({ emailAddress: email, password, firstName });
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      // In the new API, create() might return { error }
+      const response = await signUp.create({ emailAddress: email, password, firstName });
+      if (response?.error) {
+        throw response.error;
+      }
+      
+      // Send verification code
+      const verifyResponse = await signUp.verifications.sendEmailCode();
+      if (verifyResponse?.error) {
+        throw verifyResponse.error;
+      }
+      
       setPendingVerification(true);
     } catch (err) {
-      Alert.alert('Error', err.errors?.[0]?.message || 'Sign up failed');
+      console.error('Sign up error:', JSON.stringify(err, null, 2));
+      const msg = err.errors?.[0]?.message || err.message || 'Sign up failed';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerify = async () => {
-    if (!isLoaded) return;
+    if (!isLoaded || !signUp) return;
     setLoading(true);
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code });
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
+      const result = await signUp.verifications.verifyEmailCode({ code });
+      
+      if (result?.error) {
+        throw result.error;
+      }
+
+      if (signUp.status === 'complete') {
+        await setActive({ session: signUp.createdSessionId });
       } else {
-        Alert.alert('Verification failed', 'Please try again');
+        Alert.alert('Verification failed', 'Status: ' + signUp.status);
       }
     } catch (err) {
-      Alert.alert('Error', err.errors?.[0]?.message || 'Verification failed');
+      console.error('Verify error:', JSON.stringify(err, null, 2));
+      const msg = err.errors?.[0]?.message || err.message || 'Verification failed';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
