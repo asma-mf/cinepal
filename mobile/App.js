@@ -23,8 +23,10 @@ import TicketScreen from './src/screens/TicketScreen';
 import MyBookingsScreen from './src/screens/MyBookingsScreen';
 import BookingDetailScreen from './src/screens/BookingDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
+import TermsScreen from './src/screens/TermsScreen';
 import MovieCarouselScreen from './src/screens/MovieCarouselScreen';
 import CinemasListScreen from './src/screens/CinemasListScreen';
 import LoadingOverlay from './src/components/LoadingOverlay';
@@ -154,7 +156,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="ProfileTab"
-        component={ProfileScreen}
+        component={ProfileStack}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => (
@@ -167,11 +169,21 @@ function MainTabs() {
   );
 }
 
+function ProfileStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
+    </Stack.Navigator>
+  );
+}
+
 function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
       <Stack.Screen name="SignIn" component={SignInScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: true, title: 'Terms & Conditions' }} />
     </Stack.Navigator>
   );
 }

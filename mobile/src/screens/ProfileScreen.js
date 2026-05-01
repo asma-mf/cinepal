@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser, useClerk } from '@clerk/expo';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user } = useUser();
   const { signOut } = useClerk();
   const theme = useTheme();
@@ -27,6 +27,8 @@ export default function ProfileScreen() {
   const initial = user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() || '?';
   const fullName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'User';
   const email = user?.emailAddresses?.[0]?.emailAddress;
+  const birthday = user?.unsafeMetadata?.birthday;
+  const imageUrl = user?.imageUrl;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -44,18 +46,22 @@ export default function ProfileScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.pageTitle}>Profile</Text>
-          <Text variant="bodySmall" style={styles.pageSubtitle}>Manage your account and preferences</Text>
+          <View>
+            <Text style={styles.pageTitle}>Profile</Text>
+            <Text variant="bodySmall" style={styles.pageSubtitle}>Manage your account and preferences</Text>
+          </View>
+          <Button mode="contained-tonal" compact onPress={() => navigation.navigate('EditProfile')} style={styles.editBtn}>
+            Edit
+          </Button>
         </View>
 
         {/* Avatar card */}
         <View style={styles.avatarSection}>
-          <Avatar.Text
-            size={80}
-            label={initial}
-            style={styles.avatar}
-            labelStyle={styles.avatarLabel}
-          />
+          {imageUrl && !imageUrl.includes('default') ? (
+            <Avatar.Image size={80} source={{ uri: imageUrl }} style={styles.avatar} />
+          ) : (
+            <Avatar.Text size={80} label={initial} style={styles.avatar} labelStyle={styles.avatarLabel} />
+          )}
           <Text variant="headlineSmall" style={styles.name}>{fullName}</Text>
           <Text variant="bodyMedium" style={styles.email}>{email}</Text>
         </View>
@@ -75,6 +81,14 @@ export default function ProfileScreen() {
             title="Email"
             description={email || '—'}
             left={(props) => <List.Icon {...props} icon="email-outline" color={theme.colors.primary} />}
+            titleStyle={styles.listTitle}
+            descriptionStyle={styles.listDesc}
+          />
+          <Divider style={styles.divider} />
+          <List.Item
+            title="Birthday"
+            description={birthday || 'Not set'}
+            left={(props) => <List.Icon {...props} icon="calendar-outline" color={theme.colors.primary} />}
             titleStyle={styles.listTitle}
             descriptionStyle={styles.listDesc}
           />
@@ -130,9 +144,10 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pageTitle: { fontSize: 28, fontWeight: '800', color: '#F5F5F5' },
   pageSubtitle: { color: '#666', marginTop: 2 },
+  editBtn: { borderRadius: 8 },
 
   avatarSection: { alignItems: 'center', paddingVertical: 24 },
   avatar: { backgroundColor: '#E50914', marginBottom: 12 },
