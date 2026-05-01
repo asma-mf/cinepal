@@ -69,7 +69,7 @@ export default async function MoviesPage() {
         </div>
         <Button size="sm" asChild>
           <Link href="/admin/movies?action=new">
-            <Plus data-icon="inline-start" />
+            <Plus className="mr-2 h-4 w-4" />
             Add Movie
           </Link>
         </Button>
@@ -184,7 +184,7 @@ export default async function MoviesPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <Link href={`/admin/movies?edit=${movie._id}`}>
-                            <Edit data-icon="inline-start" />
+                            <Edit className="w-4 h-4 mr-2" />
                             Edit Movie
                           </Link>
                         </DropdownMenuItem>

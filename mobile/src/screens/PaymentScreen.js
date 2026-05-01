@@ -1,22 +1,76 @@
-// Payment screen: dummy card input form, submits to confirm booking
+// Payment screen: card input form with Paper TextInput, submits to confirm booking
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import { Text, TextInput, Button, Surface, Divider, useTheme, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApiClient } from '../services/api';
+
+const formatCardNumber = (val) =>
+  val.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim().slice(0, 19);
+
+const formatExpiry = (val) => {
+  let clean = val.replace(/\D/g, '').slice(0, 4);
+  if (clean.length >= 2) {
+    const month = parseInt(clean.slice(0, 2));
+    if (month > 12) clean = '12' + clean.slice(2);
+    if (month === 0 && clean.length === 2) clean = '01';
+  }
+  return clean.length > 2 ? `${clean.slice(0, 2)}/${clean.slice(2)}` : clean;
+};
 
 export default function PaymentScreen({ route, navigation }) {
   const { bookingId, seats, price, movie, total } = route.params;
   const { authRequest } = useApiClient();
+  const theme = useTheme();
+
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
+  const [cardHolder, setCardHolder] = useState('');
   const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
   const handlePay = async () => {
-    if (!cardNumber || !expiry || !cvv) {
-      Alert.alert('Incomplete', 'Please fill in all card details');
+    if (!cardNumber || !expiry || !cvv || !cardHolder) {
+      setSnackbar({ visible: true, message: 'Please fill in all card details.' });
       return;
     }
+
+    // Card number length
+    if (cardNumber.replace(/\s/g, '').length < 16) {
+      setSnackbar({ visible: true, message: 'Please enter a valid 16-digit card number.' });
+      return;
+    }
+
+    // Expiry validation
+    const [month, year] = expiry.split('/').map(n => parseInt(n));
+    if (!month || month < 1 || month > 12) {
+      setSnackbar({ visible: true, message: 'Please enter a valid month (01-12).' });
+      return;
+    }
+
+    if (!year || year < 24) { // Basic check for current year (2024+)
+       setSnackbar({ visible: true, message: 'Please enter a valid expiry year.' });
+       return;
+    }
+
+    // Check if date is in the past
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = parseInt(now.getFullYear().toString().slice(-2));
+
+    if (year === currentYear && month < currentMonth) {
+      setSnackbar({ visible: true, message: 'Card has expired.' });
+      return;
+    }
+
+    // CVV validation
+    if (cvv.length < 3) {
+      setSnackbar({ visible: true, message: 'Please enter a valid 3 or 4-digit CVV.' });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await authRequest({
@@ -32,92 +86,199 @@ export default function PaymentScreen({ route, navigation }) {
         seats,
       });
     } catch (err) {
-      const msg = err.response?.data?.error || 'Payment failed';
-      Alert.alert('Payment Failed', msg);
+      const msg = err.response?.data?.error || 'Payment failed. Please try again.';
+      setSnackbar({ visible: true, message: msg });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Payment</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* Header Description */}
+        <View style={styles.screenHeader}>
+          <Text style={styles.screenTitle}>Payment</Text>
+          <Text style={styles.screenSubtitle}>Secure your booking with a card</Text>
+        </View>
 
-      <View style={styles.summary}>
-        <Text style={styles.movieTitle}>{movie?.title}</Text>
-        <Text style={styles.seats}>{seats.map((s) => `${s.row}${s.col}`).join(', ')}</Text>
-        <Text style={styles.total}>LKR {total}</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Card Number</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="1234 5678 9012 3456"
-          placeholderTextColor="#555"
-          value={cardNumber}
-          onChangeText={setCardNumber}
-          keyboardType="numeric"
-          maxLength={19}
-        />
-
-        <View style={styles.row}>
-          <View style={styles.halfField}>
-            <Text style={styles.label}>Expiry</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="MM/YY"
-              placeholderTextColor="#555"
-              value={expiry}
-              onChangeText={setExpiry}
-              maxLength={5}
-            />
+        {/* Order summary */}
+        <Surface style={styles.summary} elevation={1}>
+          <Text style={styles.summaryLabel}>ORDER SUMMARY</Text>
+          <Divider style={styles.divider} />
+          <Text style={styles.movieTitle} numberOfLines={2}>{movie?.title}</Text>
+          <View style={styles.summaryRow}>
+            <MaterialCommunityIcons name="seat" size={14} color="#666" />
+            <Text style={styles.summaryMeta}>{seats.map((s) => `${s.row}${s.col}`).join(', ')}</Text>
           </View>
-          <View style={[styles.halfField, { marginLeft: 12 }]}>
-            <Text style={styles.label}>CVV</Text>
+          <View style={styles.summaryRow}>
+            <MaterialCommunityIcons name="ticket-percent" size={14} color="#666" />
+            <Text style={styles.summaryMeta}>{seats.length} × LKR {price.toLocaleString()}</Text>
+          </View>
+          <Divider style={styles.divider} />
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={[styles.totalAmount, { color: theme.colors.primary }]}>
+              LKR {total.toLocaleString()}
+            </Text>
+          </View>
+        </Surface>
+
+        {/* Card mock visual */}
+        <View style={styles.cardVisual}>
+          <View style={styles.cardChip}>
+            <MaterialCommunityIcons name="chip" size={28} color="#FFB800" />
+          </View>
+          <Text style={styles.cardNumberDisplay}>
+            {cardNumber || '•••• •••• •••• ••••'}
+          </Text>
+          <View style={styles.cardFooter}>
+            <View>
+              <Text style={styles.cardFooterLabel}>CARD HOLDER</Text>
+              <Text style={styles.cardFooterValue}>{cardHolder || 'YOUR NAME'}</Text>
+            </View>
+            <View>
+              <Text style={styles.cardFooterLabel}>EXPIRES</Text>
+              <Text style={styles.cardFooterValue}>{expiry || 'MM/YY'}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Form */}
+        <View style={styles.form}>
+          <TextInput
+            label="Card Holder Name"
+            value={cardHolder}
+            onChangeText={setCardHolder}
+            mode="outlined"
+            left={<TextInput.Icon icon="account-outline" />}
+            style={styles.input}
+            autoCapitalize="words"
+          />
+          <TextInput
+            label="Card Number"
+            value={cardNumber}
+            onChangeText={(v) => setCardNumber(formatCardNumber(v))}
+            mode="outlined"
+            keyboardType="numeric"
+            left={<TextInput.Icon icon="credit-card-outline" />}
+            maxLength={19}
+            style={styles.input}
+          />
+          <View style={styles.row}>
             <TextInput
-              style={styles.input}
-              placeholder="123"
-              placeholderTextColor="#555"
+              label="Expiry (MM/YY)"
+              value={expiry}
+              onChangeText={(v) => setExpiry(formatExpiry(v))}
+              mode="outlined"
+              keyboardType="numeric"
+              maxLength={5}
+              style={[styles.input, styles.halfInput]}
+            />
+            <TextInput
+              label="CVV"
               value={cvv}
               onChangeText={setCvv}
+              mode="outlined"
               keyboardType="numeric"
               secureTextEntry
               maxLength={4}
+              style={[styles.input, styles.halfInput]}
             />
           </View>
         </View>
-      </View>
 
-      <TouchableOpacity style={[styles.payButton, loading && styles.payButtonDisabled]} onPress={handlePay} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.payButtonText}>Pay LKR {total}</Text>}
-      </TouchableOpacity>
+        {/* Security note */}
+        <View style={styles.securityNote}>
+          <MaterialCommunityIcons name="shield-check-outline" size={14} color="#555" />
+          <Text style={styles.securityText}> 256-bit encrypted · Demo mode, no real charges</Text>
+        </View>
+
+        {/* Pay button */}
+        <Button
+          mode="contained"
+          onPress={handlePay}
+          loading={loading}
+          disabled={loading}
+          icon="lock"
+          style={styles.payButton}
+          contentStyle={styles.payContent}
+          labelStyle={styles.payLabel}
+        >
+          Pay LKR {total.toLocaleString()}
+        </Button>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+
+      <Snackbar
+        visible={snackbar.visible}
+        onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+        duration={3500}
+        action={{ label: 'OK', onPress: () => setSnackbar({ ...snackbar, visible: false }) }}
+      >
+        {snackbar.message}
+      </Snackbar>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a', padding: 20 },
-  header: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
-  summary: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 24 },
-  movieTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 4 },
-  seats: { color: '#aaa', fontSize: 14, marginBottom: 8 },
-  total: { color: '#e50914', fontSize: 22, fontWeight: 'bold' },
-  form: { marginBottom: 32 },
-  label: { color: '#666', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
-  input: {
-    backgroundColor: '#1a1a1a',
-    color: '#fff',
-    borderRadius: 8,
-    padding: 14,
-    fontSize: 16,
-    marginBottom: 16,
+  container: { flex: 1 },
+  scroll: { padding: 20 },
+
+  screenHeader: { paddingTop: 0, paddingBottom: 24 },
+  screenTitle: { fontSize: 28, fontWeight: '800', color: '#F5F5F5' },
+  screenSubtitle: { color: '#666', fontSize: 14, marginTop: 2 },
+
+  summary: { backgroundColor: '#1C1C1C', borderRadius: 14, overflow: 'hidden', marginBottom: 20 },
+  summaryLabel: { color: '#555', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, padding: 14, paddingBottom: 10 },
+  divider: { backgroundColor: '#2A2A2A' },
+  movieTitle: { color: '#F5F5F5', fontSize: 16, fontWeight: '700', padding: 14, paddingBottom: 8 },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 3 },
+  summaryMeta: { color: '#666', fontSize: 13 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
+  totalLabel: { color: '#AEAEAE', fontSize: 15, fontWeight: '600' },
+  totalAmount: { fontSize: 20, fontWeight: '800' },
+
+  // Card visual
+  cardVisual: {
+    backgroundColor: '#1C1C1C',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#2A2A2A',
+    minHeight: 160,
   },
-  row: { flexDirection: 'row' },
-  halfField: { flex: 1 },
-  payButton: { backgroundColor: '#e50914', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
-  payButtonDisabled: { opacity: 0.6 },
-  payButtonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
+  cardChip: { marginBottom: 16 },
+  cardNumberDisplay: {
+    color: '#F5F5F5',
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 3,
+    marginBottom: 20,
+    fontVariant: ['tabular-nums'],
+  },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
+  cardFooterLabel: { color: '#555', fontSize: 9, fontWeight: '700', letterSpacing: 1.5, marginBottom: 2 },
+  cardFooterValue: { color: '#AEAEAE', fontSize: 13, fontWeight: '600' },
+
+  // Form
+  form: { gap: 0 },
+  input: { marginBottom: 12, backgroundColor: 'transparent' },
+  row: { flexDirection: 'row', gap: 12 },
+  halfInput: { flex: 1 },
+
+  securityNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  securityText: { color: '#555', fontSize: 12 },
+
+  payButton: { borderRadius: 12 },
+  payContent: { paddingVertical: 6 },
+  payLabel: { fontSize: 16, fontWeight: '700' },
 });

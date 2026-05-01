@@ -46,6 +46,8 @@ const navItems = [
   },
 ];
 
+import Image from 'next/image';
+
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const { user } = useUser();
@@ -53,13 +55,22 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   return (
     <Sidebar collapsible="icon" variant="sidebar" {...props}>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Film className="size-4" />
+        <div className="flex items-center gap-3 px-3 py-4">
+          <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+            <Image
+              src="/cinepal.png"
+              alt="CinePal"
+              width={100}
+              height={30}
+              className="object-contain"
+              style={{ height: 'auto' }}
+            />
+            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+              Admin
+            </span>
           </div>
-          <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-            <span className="font-bold text-base">CinePal</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Admin</span>
+          <div className="hidden group-data-[collapsible=icon]:flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Film className="size-4" />
           </div>
         </div>
       </SidebarHeader>
