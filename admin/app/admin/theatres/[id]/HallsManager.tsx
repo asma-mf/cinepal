@@ -58,13 +58,19 @@ import { HallLayoutEditor } from './HallLayoutEditor';
 
 const hallSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  rows: z.coerce.number().min(1, 'At least 1 row').max(26, 'Max 26 rows'),
-  cols: z.coerce.number().min(1, 'At least 1 column'),
+  rows: z.preprocess((val) => Number(val), z.number().min(1, 'At least 1 row').max(26, 'Max 26 rows')),
+  cols: z.preprocess((val) => Number(val), z.number().min(1, 'At least 1 column')),
   rowBreaks: z.string().optional().default(''),
   colBreaks: z.string().optional().default(''),
 });
 
-type HallFormValues = z.infer<typeof hallSchema>;
+type HallFormValues = {
+  name: string;
+  rows: number;
+  cols: number;
+  rowBreaks: string;
+  colBreaks: string;
+};
 
 interface Hall {
   _id: string;
@@ -82,7 +88,7 @@ export default function HallsManager({ theatreId, halls }: { theatreId: string; 
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const form = useForm<HallFormValues>({
-    resolver: zodResolver(hallSchema),
+    resolver: zodResolver(hallSchema as any),
     defaultValues: {
       name: '',
       rows: 10,
