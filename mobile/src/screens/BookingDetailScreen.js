@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApiClient } from '../services/api';
+import QRCode from 'react-native-qrcode-svg';
 
 const STATUS_CONFIG = {
   confirmed: { icon: 'check-circle', color: '#22c55e', label: 'Confirmed' },
@@ -161,6 +162,27 @@ export default function BookingDetailScreen({ route, navigation }) {
           />
         </Surface>
 
+        {/* QR Code */}
+        {booking.status === 'confirmed' && (
+          <Surface style={styles.card} elevation={1}>
+            <Text style={styles.cardSection}>Ticket Code</Text>
+            <Divider style={styles.cardDivider} />
+            <View style={styles.qrContainer}>
+              <View style={styles.qrWrapper}>
+                <QRCode
+                  value={booking._id}
+                  size={160}
+                  color="#1C1C1C"
+                  backgroundColor="#FFFFFF"
+                />
+              </View>
+              <Text variant="bodySmall" style={styles.qrHint}>
+                Show this code at the theatre entrance
+              </Text>
+            </View>
+          </Surface>
+        )}
+
         {/* Booking meta */}
         <Surface style={styles.card} elevation={1}>
           <Text style={styles.cardSection}>Booking Info</Text>
@@ -257,6 +279,22 @@ const styles = StyleSheet.create({
   },
   cardDivider: { backgroundColor: '#2A2A2A' },
   rowDivider: { backgroundColor: '#2A2A2A', marginLeft: 48 },
+
+  qrContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    backgroundColor: '#1C1C1C',
+  },
+  qrWrapper: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  qrHint: {
+    color: '#AEAEAE',
+    marginTop: 8,
+  },
 
   infoRow: {
     flexDirection: 'row',

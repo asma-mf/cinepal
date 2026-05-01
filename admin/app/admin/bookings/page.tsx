@@ -10,6 +10,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Printer } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +71,7 @@ export default async function AdminBookingsPage() {
                 <TableHead>Showtime</TableHead>
                 <TableHead>Seats</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -104,6 +107,14 @@ export default async function AdminBookingsPage() {
                         {booking.seats?.map((s) => `${s.row}${s.col}`).join(', ') || 'None'}
                       </TableCell>
                       <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link href={`/admin/bookings/${booking._id}/print`} target="_blank">
+                            <Printer className="h-4 w-4" />
+                            <span className="sr-only">Print</span>
+                          </Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })

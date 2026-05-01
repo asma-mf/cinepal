@@ -54,7 +54,9 @@ router.get('/:id', requireAuth, async (req, res) => {
       ],
     });
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.userId !== req.userId) return res.status(403).json({ error: 'Forbidden' });
+    if (booking.userId !== req.userId && !req.isAdmin) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     res.json(booking);
   } catch (err) {
     res.status(500).json({ error: err.message });

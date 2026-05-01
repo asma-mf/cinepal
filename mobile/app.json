@@ -4,8 +4,8 @@
     "slug": "cinepal-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/app-logo.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/cinepal.png",
+    "userInterfaceStyle": "dark",
     "experiments": {
       "reactCompiler": true
     },
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/app-logo.png",
+        "foregroundImage": "./assets/cinepal.png",
         "backgroundColor": "#0D0D0D"
       }
     },
