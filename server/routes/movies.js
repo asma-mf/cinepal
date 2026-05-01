@@ -44,6 +44,10 @@ router.get('/actor-search', requireAdmin, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const filter = {};
+    if (req.query.includeArchived !== 'true') {
+      filter.status = { $ne: 'archived' };
+    }
+    
     if (req.query.status) filter.status = req.query.status;
     if (req.query.featured === 'true') filter.featured = true;
     const movies = await Movie.find(filter).sort({ createdAt: -1 });
@@ -61,8 +65,8 @@ router.get('/search', async (req, res) => {
 
     const regex = new RegExp(q, 'i');
 
-    // 1. Search by movie title
-    const moviesByTitle = await Movie.find({ title: regex });
+    // 1. Search by movie title (exclude archived)
+    const moviesByTitle = await Movie.find({ title: regex, status: { $ne: 'archived' } });
 
     // 2. Search by location (theatres in that location)
     const Theatre = require('../models/Theatre');
@@ -75,7 +79,10 @@ router.get('/search', async (req, res) => {
     let moviesByLocation = [];
     if (matchingTheatres.length > 0) {
       const theatreIds = matchingTheatres.map(t => t._id);
-      const showtimes = await Showtime.find({ theatreId: { $in: theatreIds } }).populate('movieId');
+      const showtimes = await Showtime.find({ theatreId: { $in: theatreIds } }).populate({
+        path: 'movieId',
+        match: { status: { $ne: 'archived' } }
+      });
       moviesByLocation = showtimes
         .map(s => s.movieId)
         .filter(m => m != null);

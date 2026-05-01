@@ -1,10 +1,11 @@
 // Sign-in screen using Clerk's useSignIn hook
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Text, TextInput, Button, Snackbar, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSignIn, useClerk, useAuth } from '@clerk/expo';
+import { Image } from 'expo-image';
 
 export default function SignInScreen({ navigation }) {
   const { signIn } = useSignIn();
@@ -16,9 +17,15 @@ export default function SignInScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [code, setCode] = useState('');
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
-  const showError = (msg) => setSnackbar({ visible: true, message: msg });
+  const showError = (msg) => {
+    console.log('Showing error:', msg);
+    setSnackbar({ visible: true, message: msg });
+    Alert.alert('Notice', msg);
+  };
 
   const handleSignIn = async () => {
     if (!isLoaded) {
@@ -31,20 +38,141 @@ export default function SignInScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const result = await signIn.create({ identifier: email, password });
-      if (result?.error) throw result.error;
+      // Check if there's already an active sign-in flow that needs verification
+      if (signIn.status === 'needs_first_factor' || signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust') {
+        const { error: sendErr } = await signIn.emailCode.sendCode({ emailAddress: email });
+        if (sendErr) throw sendErr;
+        setPendingVerification(true);
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await signIn.password({ emailAddress: email, password });
+      
+      if (error) {
+        throw error;
+      }
+      
       if (signIn.status === 'complete') {
-        await setActive({ session: signIn.createdSessionId });
+        await signIn.finalize({
+          navigate: async ({ session }) => {
+            await setActive({ session });
+          }
+        });
+      } else if (signIn.status === 'needs_first_factor' || signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust') {
+        // Send email code for verification
+        const { error: sendErr } = await signIn.emailCode.sendCode({ emailAddress: email });
+        if (sendErr) throw sendErr;
+        setPendingVerification(true);
       } else {
-        showError('Additional verification required.');
+        showError(`Sign-in status: ${signIn.status || 'unknown'}. Please check your credentials.`);
       }
     } catch (err) {
-      const msg = err.errors?.[0]?.message || err.message || 'Sign in failed';
-      showError(msg);
+      console.error('SignIn Error:', err);
+      const msg = err?.errors?.[0]?.message || err?.message || 'Sign in failed';
+      showError(String(msg));
     } finally {
       setLoading(false);
     }
   };
+
+  const handleVerify = async () => {
+    if (!isLoaded || !signIn) return;
+    setLoading(true);
+    try {
+      // Verify using emailCode in v3
+      const { error } = await signIn.emailCode.verifyCode({ code });
+      
+      if (error) {
+        throw error;
+      }
+
+      if (signIn.status === 'complete') {
+        await signIn.finalize({
+          navigate: async ({ session }) => {
+            await setActive({ session });
+          }
+        });
+      } else {
+        showError('Verification incomplete. Status: ' + signIn.status);
+      }
+    } catch (err) {
+      const msg = err?.errors?.[0]?.message || err?.message || 'Verification failed';
+      showError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      setLoading(true);
+      const { error } = await signIn.emailCode.sendCode({ emailAddress: email });
+      if (error) throw error;
+      showError('A new verification code has been sent.');
+    } catch (err) {
+      const msg = err?.errors?.[0]?.message || err?.message || 'Failed to resend code';
+      showError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (pendingVerification) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.inner}>
+          <View style={styles.logoSection}>
+            <View style={styles.logoIcon}>
+              <Image source={require('../../assets/cinepal.png')} style={styles.logoImage} contentFit="contain" />
+            </View>
+            <Text variant="headlineSmall" style={styles.formTitle}>Verification Required</Text>
+            <Text variant="bodyMedium" style={styles.formSubtitle}>Enter the code sent to your email</Text>
+          </View>
+
+          <View style={styles.form}>
+            <TextInput
+              label="Verification Code"
+              value={code}
+              onChangeText={setCode}
+              mode="outlined"
+              keyboardType="numeric"
+              maxLength={6}
+              left={<TextInput.Icon icon="numeric" />}
+              style={styles.input}
+            />
+
+            <Button
+              mode="contained"
+              onPress={handleVerify}
+              loading={loading}
+              disabled={loading || code.length < 6}
+              style={styles.button}
+              contentStyle={styles.buttonContent}
+              labelStyle={styles.buttonLabel}
+            >
+              Verify & Sign In
+            </Button>
+
+            <Button 
+              mode="outlined" 
+              onPress={handleResend} 
+              loading={loading}
+              disabled={loading}
+              style={[styles.button, { marginTop: 12 }]}
+              labelStyle={{ color: theme.colors.onSurface }}
+            >
+              Resend Code
+            </Button>
+
+            <Button mode="text" onPress={() => setPendingVerification(false)} style={styles.linkButton}>
+              Back to Sign In
+            </Button>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -52,16 +180,20 @@ export default function SignInScreen({ navigation }) {
         {/* Logo */}
         <View style={styles.logoSection}>
           <View style={styles.logoIcon}>
-            <MaterialCommunityIcons name="movie-open" size={40} color="#fff" />
+            <Image 
+              source={require('../../assets/cinepal.png')} 
+              style={styles.logoImage} 
+              contentFit="contain"
+            />
           </View>
-          <Text style={styles.logoText}>CinePal</Text>
-          <Text variant="bodyMedium" style={styles.tagline}>Your cinema experience, simplified.</Text>
+          <Text variant="bodyMedium" style={[styles.tagline, { textAlign: 'center' }]}>Your cinema experience, simplified.</Text>
         </View>
 
         {/* Form */}
         <View style={styles.form}>
           <Text variant="headlineSmall" style={styles.formTitle}>Welcome back</Text>
           <Text variant="bodySmall" style={styles.formSubtitle}>Sign in to your account</Text>
+
 
           <TextInput
             label="Email address"
@@ -131,25 +263,22 @@ const styles = StyleSheet.create({
 
   logoSection: { alignItems: 'center', marginBottom: 40 },
   logoIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#E50914',
+    width: 200,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#E50914',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    marginBottom: 8,
   },
-  logoText: { fontSize: 32, fontWeight: '800', color: '#F5F5F5', letterSpacing: -0.5 },
-  tagline: { color: '#666', marginTop: 4 },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  logoText: { fontSize: 32, fontWeight: '800', color: '#F5F5F5', letterSpacing: 2, textAlign: 'center' },
+  tagline: { color: '#666', marginTop: 4, textAlign: 'center' },
 
   form: { gap: 4 },
-  formTitle: { color: '#F5F5F5', fontWeight: '700', marginBottom: 4 },
-  formSubtitle: { color: '#666', marginBottom: 20 },
+  formTitle: { color: '#F5F5F5', fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  formSubtitle: { color: '#666', marginBottom: 20, textAlign: 'center' },
 
   input: { marginBottom: 12, backgroundColor: 'transparent' },
   button: { marginTop: 8, borderRadius: 10 },

@@ -27,6 +27,7 @@ import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 import MovieCarouselScreen from './src/screens/MovieCarouselScreen';
 import CinemasListScreen from './src/screens/CinemasListScreen';
+import LoadingOverlay from './src/components/LoadingOverlay';
 
 // Custom dark Cinema theme
 const CinePalTheme = {
@@ -179,11 +180,7 @@ function RootNavigator() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D0D0D' }}>
-        <ActivityIndicator size="large" color="#E50914" />
-      </View>
-    );
+    return <LoadingOverlay />;
   }
 
   return (

@@ -1,10 +1,11 @@
 // Sign-up screen using Clerk's useSignUp hook
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { Text, TextInput, Button, Snackbar, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSignUp, useClerk, useAuth } from '@clerk/expo';
+import { Image } from 'expo-image';
 
 export default function SignUpScreen({ navigation }) {
   const { signUp } = useSignUp();
@@ -15,33 +16,102 @@ export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthday, setBirthday] = useState('');
   const [code, setCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
-  const showError = (msg) => setSnackbar({ visible: true, message: msg });
+  const showError = (msg) => {
+    console.log('Showing error:', msg);
+    setSnackbar({ visible: true, message: msg });
+    Alert.alert('Notice', msg);
+  };
+  
+  const handleBirthdayChange = (text) => {
+    // Remove all non-numeric characters
+    const cleaned = text.replace(/[^0-9]/g, '');
+    let formatted = cleaned;
+    
+    // YYYY-MM-DD
+    if (cleaned.length > 4) {
+      formatted = `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
+    }
+    if (cleaned.length > 6) {
+      formatted = `${cleaned.slice(0, 4)}-${cleaned.slice(4, 6)}-${cleaned.slice(6, 8)}`;
+    }
+    
+    setBirthday(formatted);
+  };
+
+  const isValidBirthday = (dateString) => {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateString.match(regex)) return { valid: false, error: 'Invalid format. Use YYYY-MM-DD' };
+
+    const parts = dateString.split("-");
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
+
+    // Check if components match (e.g. catches Feb 30th)
+    if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+      return { valid: false, error: 'That date does not exist in the calendar.' };
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - year;
+    const m = today.getMonth() - month;
+    if (m < 0 || (m === 0 && today.getDate() < day)) {
+      age--;
+    }
+
+    if (age < 16) return { valid: false, error: 'You must be at least 16 years old to join.' };
+    if (age > 100) return { valid: false, error: 'Please enter a valid birth year.' };
+
+    return { valid: true };
+  };
 
   const handleSignUp = async () => {
     if (!isLoaded || !signUp) {
       showError('Clerk is not ready yet. Please try again.');
       return;
     }
-    if (!email || !password || !firstName) {
+    if (!email || !password || !firstName || !lastName || !birthday) {
       showError('Please fill in all fields.');
+      return;
+    }
+
+    const birthCheck = isValidBirthday(birthday);
+    if (!birthCheck.valid) {
+      showError(birthCheck.error);
       return;
     }
     setLoading(true);
     try {
-      const response = await signUp.create({ emailAddress: email, password, firstName });
-      if (response?.error) throw response.error;
-      const verifyResponse = await signUp.verifications.sendEmailCode();
-      if (verifyResponse?.error) throw verifyResponse.error;
+      const { error: signUpError } = await signUp.password({ 
+        emailAddress: email, 
+        password, 
+        firstName, 
+        lastName
+      });
+      if (signUpError) throw signUpError;
+      
+      const { error: updateError } = await signUp.update({
+        unsafeMetadata: { birthday }
+      });
+      if (updateError) throw updateError;
+      
+      const { error: verifyError } = await signUp.verifications.sendEmailCode();
+      if (verifyError) throw verifyError;
+      
       setPendingVerification(true);
     } catch (err) {
-      const msg = err.errors?.[0]?.message || err.message || 'Sign up failed';
-      showError(msg);
+      console.error('SignUp Error:', err);
+      const msg = err?.errors?.[0]?.message || err?.message || 'Sign up failed';
+      showError(String(msg));
     } finally {
       setLoading(false);
     }
@@ -55,16 +125,36 @@ export default function SignUpScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const result = await signUp.verifications.verifyEmailCode({ code });
-      if (result?.error) throw result.error;
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+      if (error) throw error;
+      
       if (signUp.status === 'complete') {
-        await setActive({ session: signUp.createdSessionId });
+        await signUp.finalize({
+          navigate: async ({ session }) => {
+            await setActive({ session });
+          }
+        });
       } else {
         showError('Verification incomplete. Status: ' + signUp.status);
       }
     } catch (err) {
-      const msg = err.errors?.[0]?.message || err.message || 'Verification failed';
-      showError(msg);
+      console.error('SignUp Verify Error:', err);
+      const msg = err?.errors?.[0]?.message || err?.message || 'Verification failed';
+      showError(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      setLoading(true);
+      const { error } = await signUp.verifications.sendEmailCode();
+      if (error) throw error;
+      showError('A new verification code has been sent.');
+    } catch (err) {
+      const msg = err?.errors?.[0]?.message || err?.message || 'Failed to resend code';
+      showError(String(msg));
     } finally {
       setLoading(false);
     }
@@ -105,6 +195,17 @@ export default function SignUpScreen({ navigation }) {
           >
             Verify & Continue
           </Button>
+
+          <Button 
+            mode="outlined" 
+            onPress={handleResend} 
+            loading={loading}
+            disabled={loading}
+            style={[styles.button, { marginTop: 12 }]}
+            labelStyle={{ color: theme.colors.onSurface }}
+          >
+            Resend Code
+          </Button>
         </View>
 
         <Snackbar
@@ -125,10 +226,13 @@ export default function SignUpScreen({ navigation }) {
           {/* Logo */}
           <View style={styles.logoSection}>
             <View style={styles.logoIcon}>
-              <MaterialCommunityIcons name="movie-open" size={40} color="#fff" />
+              <Image 
+                source={require('../../assets/cinepal.png')} 
+                style={styles.logoImage} 
+                contentFit="contain"
+              />
             </View>
-            <Text style={styles.logoText}>CinePal</Text>
-            <Text variant="bodyMedium" style={styles.tagline}>Create your account</Text>
+            <Text variant="bodyMedium" style={[styles.tagline, { textAlign: 'center' }]}>Create your account</Text>
           </View>
 
           {/* Form */}
@@ -144,6 +248,28 @@ export default function SignUpScreen({ navigation }) {
               left={<TextInput.Icon icon="account-outline" />}
               style={styles.input}
             />
+
+            <TextInput
+              label="Last Name"
+              value={lastName}
+              onChangeText={setLastName}
+              mode="outlined"
+              left={<TextInput.Icon icon="account-outline" />}
+              style={styles.input}
+            />
+
+            <TextInput
+              label="Birthday"
+              value={birthday}
+              onChangeText={handleBirthdayChange}
+              mode="outlined"
+              placeholder="YYYY-MM-DD"
+              keyboardType="numeric"
+              maxLength={10}
+              left={<TextInput.Icon icon="calendar-outline" />}
+              style={styles.input}
+            />
+            <Text variant="bodySmall" style={styles.helperText}>Used to filter mature content preferences.</Text>
             <TextInput
               label="Email address"
               value={email}
@@ -213,21 +339,18 @@ const styles = StyleSheet.create({
 
   logoSection: { alignItems: 'center', marginBottom: 32, marginTop: 8 },
   logoIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: '#E50914',
+    width: 100,
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#E50914',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    marginBottom: 8,
   },
-  logoText: { fontSize: 32, fontWeight: '800', color: '#F5F5F5', letterSpacing: -0.5 },
-  tagline: { color: '#666', marginTop: 4 },
+  logoImage: {
+    width: 200,
+    height: 80,
+  },
+  logoText: { fontSize: 32, fontWeight: '800', color: '#F5F5F5', letterSpacing: 2, textAlign: 'center' },
+  tagline: { color: '#666', marginTop: 4, textAlign: 'center' },
 
   verifyHeader: { alignItems: 'center', marginBottom: 32 },
   verifyIconWrapper: {
@@ -241,10 +364,11 @@ const styles = StyleSheet.create({
   },
 
   form: { gap: 4 },
-  formTitle: { color: '#F5F5F5', fontWeight: '700', marginBottom: 4 },
+  formTitle: { color: '#F5F5F5', fontWeight: '700', marginBottom: 4, textAlign: 'center' },
   formSubtitle: { color: '#666', marginBottom: 20, textAlign: 'center' },
 
   input: { marginBottom: 12, backgroundColor: 'transparent' },
+  helperText: { color: '#666', marginTop: -8, marginBottom: 12, marginLeft: 4 },
   button: { marginTop: 8, borderRadius: 10 },
   buttonContent: { paddingVertical: 6 },
   buttonLabel: { fontSize: 16, fontWeight: '700' },

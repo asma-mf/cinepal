@@ -40,7 +40,7 @@ interface Movie {
 export default async function MoviesPage() {
   let movies: Movie[] = [];
   try {
-    movies = await adminFetch('/movies');
+    movies = await adminFetch('/movies?includeArchived=true');
   } catch (error) {
     console.error('Failed to fetch movies:', error);
     movies = [];
@@ -157,7 +157,10 @@ export default async function MoviesPage() {
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{movie.duration} min</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1.5 items-center">
-                      <Badge variant={movie.status === 'now_showing' ? 'default' : 'secondary'}>
+                      <Badge variant={
+                        movie.status === 'now_showing' ? 'default' : 
+                        movie.status === 'archived' ? 'destructive' : 'secondary'
+                      }>
                         {movie.status.replace('_', ' ')}
                       </Badge>
                       {movie.featured && (

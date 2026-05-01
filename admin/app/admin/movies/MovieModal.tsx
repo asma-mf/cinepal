@@ -36,7 +36,7 @@ const movieSchema = z.object({
   language: z.string().min(1, 'Language is required'),
   duration: z.preprocess((val) => Number(val), z.number().min(1, 'Duration must be greater than 0')),
   releaseDate: z.string().min(1, 'Release date is required'),
-  status: z.enum(['now_showing', 'coming_soon']),
+  status: z.enum(['now_showing', 'coming_soon', 'archived']),
   cast: z.array(z.any()),
   rating: z.preprocess((val) => val === '' ? undefined : Number(val), z.number().min(0).max(10).optional()),
   featured: z.boolean().default(false),
@@ -344,6 +344,7 @@ export default function MovieModal() {
                       <SelectContent>
                         <SelectItem value="now_showing">Now Showing</SelectItem>
                         <SelectItem value="coming_soon">Coming Soon</SelectItem>
+                        <SelectItem value="archived">Archived (Hidden)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
