@@ -28,6 +28,7 @@ const theatreSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   location: z.string().min(1, 'Location is required'),
   address: z.string().min(5, 'Please provide a full address'),
+  imageUrl: z.string().optional(),
 });
 
 type TheatreFormValues = z.infer<typeof theatreSchema>;
@@ -40,6 +41,8 @@ export default function TheatreModal() {
   const isOpen = action === 'new' || !!editId;
 
   const [loading, setLoading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
 
   const form = useForm<TheatreFormValues>({
     resolver: zodResolver(theatreSchema),
@@ -47,6 +50,7 @@ export default function TheatreModal() {
       name: '',
       location: '',
       address: '',
+      imageUrl: '',
     },
   });
 
@@ -61,7 +65,9 @@ export default function TheatreModal() {
             name: data.name || '',
             location: data.location || '',
             address: data.address || '',
+            imageUrl: data.imageUrl || '',
           });
+          setImageUrl(data.imageUrl || '');
         }
       } catch (err) {
         console.error('Failed to fetch theatre', err);
@@ -75,7 +81,10 @@ export default function TheatreModal() {
         name: '',
         location: '',
         address: '',
+        imageUrl: '',
       });
+      setImageUrl('');
+      setImageFile(null);
     }
   }, [editId, action, isOpen, form]);
 
@@ -85,16 +94,32 @@ export default function TheatreModal() {
     }
   };
 
+  const uploadImage = async (): Promise<string> => {
+    if (!imageFile) return imageUrl;
+    const fd = new FormData();
+    fd.append('file', imageFile);
+    const res = await fetch('/api/proxy/upload', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error('Image upload failed');
+    const data = await res.json();
+    return data.url;
+  };
+
   const onSubmit = async (values: TheatreFormValues) => {
     setLoading(true);
     try {
+      const uploadedImageUrl = await uploadImage();
+      const payload = {
+        ...values,
+        imageUrl: uploadedImageUrl,
+      };
+
       const url = editId ? `/api/proxy/theatres/${editId}` : '/api/proxy/theatres';
       const method = editId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -165,6 +190,22 @@ export default function TheatreModal() {
                 </FormItem>
               )}
             />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Theatre Image</label>
+              {imageUrl && !imageFile && (
+                <div className="mb-4">
+                  <img src={imageUrl} alt="Theatre preview" className="w-full h-32 object-cover rounded-md border" />
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                className="cursor-pointer"
+              />
+              <p className="text-[0.8rem] text-muted-foreground">Upload a photo of the theatre building or interior (optional)</p>
+            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>

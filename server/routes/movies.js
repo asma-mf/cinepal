@@ -8,6 +8,7 @@ router.get('/', async (req, res) => {
   try {
     const filter = {};
     if (req.query.status) filter.status = req.query.status;
+    if (req.query.featured === 'true') filter.featured = true;
     const movies = await Movie.find(filter).sort({ createdAt: -1 });
     res.json(movies);
   } catch (err) {

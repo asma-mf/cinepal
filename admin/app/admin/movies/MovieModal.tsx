@@ -25,6 +25,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const movieSchema = z.object({
@@ -37,6 +39,7 @@ const movieSchema = z.object({
   status: z.enum(['now_showing', 'coming_soon']),
   cast: z.string().optional(),
   rating: z.coerce.number().min(0, 'Rating cannot be negative').max(10, 'Rating cannot exceed 10').optional().or(z.literal('')),
+  featured: z.boolean().default(false),
 });
 
 type MovieFormValues = z.infer<typeof movieSchema>;
@@ -64,6 +67,7 @@ export default function MovieModal() {
       status: 'coming_soon',
       cast: '',
       rating: '',
+      featured: false,
     },
   });
 
@@ -84,6 +88,7 @@ export default function MovieModal() {
             status: data.status || 'coming_soon',
             cast: (data.cast || []).join(', '),
             rating: data.rating || '',
+            featured: data.featured || false,
           });
           setPosterUrl(data.posterUrl || '');
         }
@@ -104,6 +109,7 @@ export default function MovieModal() {
         status: 'coming_soon',
         cast: '',
         rating: '',
+        featured: false,
       });
       setPosterUrl('');
       setPosterFile(null);
@@ -136,6 +142,7 @@ export default function MovieModal() {
         cast: values.cast ? values.cast.split(',').map((s) => s.trim()).filter(Boolean) : [],
         posterUrl: uploadedPosterUrl,
         rating: values.rating !== '' ? Number(values.rating) : undefined,
+        featured: values.featured,
       };
 
       const url = editId ? `/api/proxy/movies/${editId}` : '/api/proxy/movies';
@@ -335,6 +342,34 @@ export default function MovieModal() {
               />
               <p className="text-[0.8rem] text-muted-foreground">Upload a movie poster (optional)</p>
             </div>
+
+            <FormField
+              control={form.control}
+              name="featured"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <FormLabel className="text-base">Featured Movie</FormLabel>
+                      {field.value && (
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] uppercase tracking-wider">
+                          Featured
+                        </Badge>
+                      )}
+                    </div>
+                    <FormDescription>
+                      Feature this movie on the home screen carousel. Only a few movies should be featured at a time.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>

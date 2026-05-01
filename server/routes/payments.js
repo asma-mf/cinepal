@@ -8,6 +8,23 @@ const Showtime = require('../models/Showtime');
 const { requireAuth } = require('../middleware/auth');
 const { randomBytes } = require('crypto');
 
+router.get('/', requireAuth, async (req, res) => {
+  try {
+    const payments = await Payment.find().populate({
+      path: 'bookingId',
+      populate: {
+        path: 'showtimeId',
+        populate: [
+          { path: 'movieId', select: 'title' },
+        ],
+      },
+    }).sort({ createdAt: -1 });
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/', requireAuth, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();

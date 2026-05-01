@@ -1,6 +1,6 @@
 // Profile screen: user info and sign-out
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Text, Avatar, Button, List, Divider, Surface, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,6 +10,19 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const theme = useTheme();
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    if (!user) return;
+    setRefreshing(true);
+    try {
+      await user.reload();
+    } catch (err) {
+      console.error('Failed to reload user:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user]);
 
   const initial = user?.firstName?.[0] || user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() || '?';
   const fullName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'User';
@@ -17,7 +30,18 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={['#E50914']} 
+            tintColor="#E50914"
+            progressBackgroundColor="#1C1C1C"
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.pageTitle}>Profile</Text>

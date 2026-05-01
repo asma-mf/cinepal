@@ -13,6 +13,7 @@ const MovieSchema = new mongoose.Schema(
     posterUrl: { type: String },
     cast: [{ type: String }],
     rating: { type: Number, min: 0, max: 10 },
+    featured: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
