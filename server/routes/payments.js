@@ -38,13 +38,17 @@ router.get('/', requireAuth, async (req, res) => {
 
     const total = await Payment.countDocuments(filter);
 
-    res.json({
-      data: payments,
-      total,
-      page: p,
-      limit: l,
-      totalPages: Math.ceil(total / l),
-    });
+    if (page || limit) {
+      return res.json({
+        data: payments,
+        total,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(total / l),
+      });
+    }
+
+    res.json(payments);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

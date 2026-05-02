@@ -31,13 +31,17 @@ router.get('/', async (req, res) => {
 
     const total = await Theatre.countDocuments(filter);
 
-    res.json({
-      data: theatres,
-      total,
-      page: p,
-      limit: l,
-      totalPages: Math.ceil(total / l),
-    });
+    if (page || limit) {
+      return res.json({
+        data: theatres,
+        total,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(total / l),
+      });
+    }
+
+    res.json(theatres);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
