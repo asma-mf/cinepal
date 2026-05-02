@@ -128,7 +128,7 @@ export default function PrintTicketClient({ booking }: { booking: any }) {
       >
         {/* Header */}
         <div className="text-center mb-10 border-b-2 border-gray-100 pb-8">
-          <img src="/cinepal.png" alt="Logo" style={{ width: '150px', height: 'auto', margin: '0 auto' }} />
+          <img src="/cinepal-high-res.png" alt="Logo" style={{ width: '250px', height: 'auto', margin: '0 auto' }} />
         </div>
 
         <div className="flex flex-col md:flex-row gap-10">

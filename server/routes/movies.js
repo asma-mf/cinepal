@@ -43,13 +43,24 @@ router.get('/actor-search', requireAdmin, async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
+    const { status, featured, includeArchived } = req.query;
     const filter = {};
-    if (req.query.includeArchived !== 'true') {
+
+    // Base exclusion for archived movies
+    if (includeArchived !== 'true') {
       filter.status = { $ne: 'archived' };
     }
-    
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.featured === 'true') filter.featured = true;
+
+    // Specific status filter (overrides the base exclusion if provided)
+    if (status) {
+      filter.status = status;
+    }
+
+    // Featured filter
+    if (featured === 'true') {
+      filter.featured = true;
+    }
+
     const movies = await Movie.find(filter).sort({ createdAt: -1 });
     res.json(movies);
   } catch (err) {

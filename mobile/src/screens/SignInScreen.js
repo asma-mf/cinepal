@@ -124,7 +124,7 @@ export default function SignInScreen({ navigation }) {
         <View style={styles.inner}>
           <View style={styles.logoSection}>
             <View style={styles.logoIcon}>
-              <Image source={require('../../assets/cinepal.png')} style={styles.logoImage} contentFit="contain" />
+              <Image source={require('../../assets/cinepal-high-res.png')} style={styles.logoImage} contentFit="contain" />
             </View>
             <Text variant="headlineSmall" style={styles.formTitle}>Verification Required</Text>
             <Text variant="bodyMedium" style={styles.formSubtitle}>Enter the code sent to your email</Text>

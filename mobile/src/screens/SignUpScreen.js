@@ -39,7 +39,7 @@ export default function SignUpScreen({ navigation }) {
   const showError = (msg) => {
     console.log('Showing error:', msg);
     setSnackbar({ visible: true, message: msg });
-    Alert.alert('Notice', msg);
+    Alert.alert('Notice', String(msg));
   };
 
   const pickImage = async () => {
@@ -149,20 +149,25 @@ export default function SignUpScreen({ navigation }) {
     try {
       const { error: signUpError } = await signUp.password({ 
         emailAddress: email, 
-        password, 
-        firstName, 
+        password,
+        firstName,
         lastName,
-        username
+        username,
+        unsafeMetadata: { birthday },
       });
-      if (signUpError) throw signUpError;
+      if (signUpError) {
+        const msg = signUpError?.errors?.[0]?.message || signUpError?.message || 'Sign up failed';
+        showError(String(msg));
+        return;
+      }
       
-      const { error: updateError } = await signUp.update({
-        unsafeMetadata: { birthday }
-      });
-      if (updateError) throw updateError;
-      
+      // Send the email verification code
       const { error: verifyError } = await signUp.verifications.sendEmailCode();
-      if (verifyError) throw verifyError;
+      if (verifyError) {
+        const msg = verifyError?.errors?.[0]?.message || verifyError?.message || 'Failed to send verification code';
+        showError(String(msg));
+        return;
+      }
       
       setPendingVerification(true);
     } catch (err) {
@@ -183,7 +188,11 @@ export default function SignUpScreen({ navigation }) {
     setLoading(true);
     try {
       const { error } = await signUp.verifications.verifyEmailCode({ code });
-      if (error) throw error;
+      if (error) {
+        const msg = error?.errors?.[0]?.message || error?.message || 'Verification failed';
+        showError(String(msg));
+        return;
+      }
       
       if (signUp.status === 'complete') {
         await signUp.finalize({
@@ -294,23 +303,28 @@ export default function SignUpScreen({ navigation }) {
   // Paged Sign-Up Screen
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.inner}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          
-          <View style={styles.headerRow}>
-             {step > 1 ? (
-                <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                  <MaterialCommunityIcons name="arrow-left" size={24} color="#F5F5F5" />
-                </TouchableOpacity>
-             ) : <View style={{width: 24}} />}
-             <ProgressBar progress={step / 3} color="#E50914" style={styles.progressBar} />
-             <View style={{width: 24}} />
-          </View>
+      {/* Step progress header — OUTSIDE ScrollView to prevent layout issues */}
+      <View style={styles.headerRow}>
+        {step > 1 ? (
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#F5F5F5" />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
+        <ProgressBar
+          progress={step / 3}
+          color="#E50914"
+          style={styles.progressBar}
+        />
+        <View style={{ width: 40 }} />
+      </View>
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardView}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
           <View style={styles.logoSection}>
             <View style={styles.logoIcon}>
               <Image 
-                source={require('../../assets/cinepal.png')} 
+                source={require('../../assets/cinepal-high-res.png')} 
                 style={styles.logoImage} 
                 contentFit="contain"
               />
@@ -483,13 +497,27 @@ export default function SignUpScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: { flex: 1, padding: 24 },
-  
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  backButton: { padding: 8, marginLeft: -8 },
-  progressBar: { flex: 1, marginHorizontal: 16, height: 6, borderRadius: 3, backgroundColor: '#2A2A2A' },
+  keyboardView: { flex: 1 },
+  scrollContent: { padding: 24, paddingTop: 8 },
 
-  logoSection: { alignItems: 'center', marginBottom: 24 },
+  // Header row is now OUTSIDE ScrollView — fixed width layout
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  backButton: { padding: 8 },
+  progressBar: {
+    flex: 1,
+    marginHorizontal: 12,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#2A2A2A',
+  },
+
+  logoSection: { alignItems: 'center', marginBottom: 24, marginTop: 8 },
   logoIcon: {
     width: 100,
     height: 80,
@@ -510,6 +538,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  inner: { flex: 1, padding: 24 },
 
   form: { gap: 4 },
   formTitle: { color: '#F5F5F5', fontWeight: '700', marginBottom: 4, textAlign: 'center' },

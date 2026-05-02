@@ -29,6 +29,9 @@ importers:
       expo:
         specifier: ~55.0.18
         version: 55.0.18(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(bufferutil@4.1.0)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0)(typescript@6.0.3)(utf-8-validate@6.0.6)
+      expo-font:
+        specifier: ^55.0.6
+        version: 55.0.6(expo@55.0.18)(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0)
       expo-image:
         specifier: ~55.0.9
         version: 55.0.9(expo@55.0.18)(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0)
@@ -38,6 +41,9 @@ importers:
       expo-secure-store:
         specifier: ~55.0.13
         version: 55.0.13(expo@55.0.18)
+      expo-splash-screen:
+        specifier: ^55.0.19
+        version: 55.0.19(expo@55.0.18)(typescript@6.0.3)
       expo-status-bar:
         specifier: ~55.0.5
         version: 55.0.5(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0)
@@ -1939,6 +1945,11 @@ packages:
   expo-server@55.0.8:
     resolution: {integrity: sha512-AoV5TKuO4biSzrhe/OVLyInfTT0pV9/OOc/g/oVq5vmCjL8SaSYTkES8PLt+67Tm7VqX+Dn0+kSx1nQcjEKaPw==}
     engines: {node: '>=20.16.0'}
+
+  expo-splash-screen@55.0.19:
+    resolution: {integrity: sha512-l8BWI/inLJW46Ojz5NgwvaM8LftrdXeFfZBUXhAoZxg44Qo2xKY76s0S1h3WIxWXT4sRKwK8YQzGr4k+zHubxQ==}
+    peerDependencies:
+      expo: '*'
 
   expo-status-bar@55.0.5:
     resolution: {integrity: sha512-qb0c3rJO2b7CC0gUVGi1JYp92oLenWdYGyk8l4YQs6U+uaXUTPv6aaFa3KkT2HON10re3AxxPNJci8rsz6kPxg==}
@@ -5817,6 +5828,14 @@ snapshots:
       expo: 55.0.18(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(bufferutil@4.1.0)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0)(typescript@6.0.3)(utf-8-validate@6.0.6)
 
   expo-server@55.0.8: {}
+
+  expo-splash-screen@55.0.19(expo@55.0.18)(typescript@6.0.3):
+    dependencies:
+      '@expo/prebuild-config': 55.0.16(expo@55.0.18)(typescript@6.0.3)
+      expo: 55.0.18(@babel/core@7.29.0)(@expo/dom-webview@55.0.5)(bufferutil@4.1.0)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0)(typescript@6.0.3)(utf-8-validate@6.0.6)
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
 
   expo-status-bar@55.0.5(react-native@0.83.6(@babel/core@7.29.0)(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(utf-8-validate@6.0.6))(react@19.2.0):
     dependencies:
