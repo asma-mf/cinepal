@@ -88,6 +88,10 @@ components:
           type: string
         imageUrl:
           type: string
+        amenities:
+          type: array
+          items:
+            type: string
         halls:
           type: array
           items:
@@ -437,6 +441,25 @@ paths:
       responses:
         200:
           description: Deleted
+
+  /theatres/{id}/movies:
+    get:
+      summary: Get unique movies showing in a specific theatre
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of movies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Movie'
 
   /theatres/{id}/halls:
     post:

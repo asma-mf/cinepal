@@ -7,6 +7,7 @@ const TheatreSchema = new mongoose.Schema(
     location: { type: String, required: true },
     address: { type: String, required: true },
     imageUrl: { type: String, default: '' },
+    amenities: [{ type: String }],
   },
   { timestamps: true }
 );
