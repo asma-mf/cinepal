@@ -29,6 +29,7 @@ const theatreSchema = z.object({
   location: z.string().min(1, 'Location is required'),
   address: z.string().min(5, 'Please provide a full address'),
   imageUrl: z.string().optional(),
+  amenities: z.string().optional(),
 });
 
 type TheatreFormValues = {
@@ -36,6 +37,7 @@ type TheatreFormValues = {
   location: string;
   address: string;
   imageUrl?: string;
+  amenities?: string;
 };
 
 export default function TheatreModal() {
@@ -56,6 +58,7 @@ export default function TheatreModal() {
       location: '',
       address: '',
       imageUrl: '',
+      amenities: '',
     },
   });
 
@@ -71,6 +74,7 @@ export default function TheatreModal() {
             location: data.location || '',
             address: data.address || '',
             imageUrl: data.imageUrl || '',
+            amenities: data.amenities ? data.amenities.join(', ') : '',
           });
           setImageUrl(data.imageUrl || '');
         }
@@ -87,6 +91,7 @@ export default function TheatreModal() {
         location: '',
         address: '',
         imageUrl: '',
+        amenities: '',
       });
       setImageUrl('');
       setImageFile(null);
@@ -116,6 +121,9 @@ export default function TheatreModal() {
       const payload = {
         ...values,
         imageUrl: uploadedImageUrl,
+        amenities: values.amenities 
+          ? values.amenities.split(',').map(s => s.trim()).filter(Boolean) 
+          : [],
       };
 
       const url = editId ? `/api/proxy/theatres/${editId}` : '/api/proxy/theatres';
@@ -190,6 +198,20 @@ export default function TheatreModal() {
                   <FormLabel>Full Address *</FormLabel>
                   <FormControl>
                     <Input placeholder="123 Main Street, City Center" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="amenities"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amenities (comma separated)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Snacks, Parking, WiFi, Premium Seats" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -8,27 +8,32 @@ import apiClient from '../services/api';
 
 const fetchCinemas = () => apiClient.get('/theatres').then((r) => r.data);
 
-const CinemaCard = ({ cinema, theme }) => {
+const CinemaCard = ({ cinema, theme, navigation }) => {
   return (
-    <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2}>
-      <Image
-        source={{ uri: cinema.imageUrl || 'https://via.placeholder.com/300x150?text=Cinema' }}
-        style={styles.image}
-      />
-      <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>{cinema.name}</Text>
-        
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons name="map-marker" size={14} color={theme.colors.primary} />
-          <Text style={styles.locationText} numberOfLines={1}>{cinema.location}</Text>
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      onPress={() => navigation.navigate('CinemaDetail', { theatreId: cinema._id })}
+    >
+      <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2}>
+        <Image
+          source={{ uri: cinema.imageUrl || 'https://via.placeholder.com/300x150?text=Cinema' }}
+          style={styles.image}
+        />
+        <View style={styles.content}>
+          <Text style={styles.title} numberOfLines={1}>{cinema.name}</Text>
+          
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="map-marker" size={14} color={theme.colors.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>{cinema.location}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="home-city-outline" size={14} color={theme.colors.onSurfaceVariant} />
+            <Text style={styles.addressText} numberOfLines={2}>{cinema.address}</Text>
+          </View>
         </View>
-        
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons name="home-city-outline" size={14} color={theme.colors.onSurfaceVariant} />
-          <Text style={styles.addressText} numberOfLines={2}>{cinema.address}</Text>
-        </View>
-      </View>
-    </Surface>
+      </Surface>
+    </TouchableOpacity>
   );
 };
 
@@ -56,7 +61,7 @@ export default function CinemasListScreen({ navigation }) {
           data={cinemas}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => <CinemaCard cinema={item} theme={theme} />}
+          renderItem={({ item }) => <CinemaCard cinema={item} theme={theme} navigation={navigation} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <MaterialCommunityIcons name="domain-off" size={64} color="#2A2A2A" />

@@ -13,6 +13,7 @@ This table provides a summary of the available API endpoints. For detailed reque
 | **Theatres** | `GET` | `/theatres` | List all theatres | Public |
 | | `POST` | `/theatres` | Create a new theatre | Admin |
 | | `GET` | `/theatres/:id` | Get theatre info and its halls | Public |
+| | `GET` | `/theatres/:id/movies` | Get unique movies showing in a specific theatre | Public |
 | | `PUT` | `/theatres/:id` | Update theatre details | Admin |
 | | `DELETE` | `/theatres/:id` | Delete a theatre | Admin |
 | **Halls** | `POST` | `/theatres/:id/halls` | Add a hall to a specific theatre | Admin |

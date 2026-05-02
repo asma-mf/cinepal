@@ -35,6 +35,7 @@ import SignUpScreen from './src/screens/SignUpScreen';
 import TermsScreen from './src/screens/TermsScreen';
 import MovieCarouselScreen from './src/screens/MovieCarouselScreen';
 import CinemasListScreen from './src/screens/CinemasListScreen';
+import CinemaDetailScreen from './src/screens/CinemaDetailScreen';
 import LoadingOverlay from './src/components/LoadingOverlay';
 
 // Custom dark Cinema theme
@@ -129,6 +130,7 @@ function HomeStack() {
       <Stack.Screen name="Ticket" component={TicketScreen} options={{ title: 'Your Ticket', headerLeft: null }} />
       <Stack.Screen name="MovieCarousel" component={MovieCarouselScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CinemasList" component={CinemasListScreen} options={{ title: 'Our Cinemas' }} />
+      <Stack.Screen name="CinemaDetail" component={CinemaDetailScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

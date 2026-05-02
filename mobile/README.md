@@ -44,6 +44,8 @@ src/
     MyBookingsScreen.js        # Upcoming and past bookings
     BookingDetailScreen.js     # Detail + cancel button
     ProfileScreen.js           # User info + sign out
+    CinemasListScreen.js       # List of all cinemas
+    CinemaDetailScreen.js      # Cinema details + specific movies
   services/
     api.js                     # Axios instance + useApiClient hook
 ```

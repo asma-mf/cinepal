@@ -89,4 +89,25 @@ router.post('/:id/halls', requireAdmin, async (req, res) => {
   }
 });
 
+router.get('/:id/movies', async (req, res) => {
+  try {
+    const Showtime = require('../models/Showtime');
+    const showtimes = await Showtime.find({ 
+      theatreId: req.params.id,
+      status: 'active'
+    }).populate('movieId');
+
+    const moviesMap = new Map();
+    showtimes.forEach(s => {
+      if (s.movieId && s.movieId.status !== 'archived') {
+        moviesMap.set(s.movieId._id.toString(), s.movieId);
+      }
+    });
+
+    res.json(Array.from(moviesMap.values()));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

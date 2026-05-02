@@ -43,7 +43,7 @@ graph TB
 ### 1. React Native Mobile App
 - **Role**: Primary interface for end-users.
 - **Tech**: React Native, Expo, React Navigation, React Native Paper.
-- **Functions**: Movie discovery, real-time seat selection, ticket booking, booking history.
+- **Functions**: Movie discovery, cinema details & theatre-specific discovery, real-time seat selection, ticket booking, booking history.
 
 ### 2. Next.js Admin Dashboard
 - **Role**: Internal tool for theatre administrators.
