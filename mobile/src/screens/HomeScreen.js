@@ -267,7 +267,7 @@ export default function HomeScreen({ navigation }) {
   });
 
   const { data: featuredMovies } = useQuery({
-    queryKey: ['movies-featured'],
+    queryKey: ['movies', 'featured'],
     queryFn: () => fetchMovies({ featured: true }),
   });
 
@@ -294,7 +294,7 @@ export default function HomeScreen({ navigation }) {
         ) : (
           <>
             <Image
-              source={require('../../assets/cinepal.png')}
+              source={require('../../assets/cinepal-high-res.png')}
               style={styles.appLogo}
             />
             <TouchableOpacity style={styles.headerRight} onPress={() => setIsSearchActive(true)}>

@@ -9,7 +9,7 @@ const MovieSchema = new mongoose.Schema(
     language: { type: String, required: true },
     duration: { type: Number, required: true }, // minutes
     releaseDate: { type: Date, required: true },
-    status: { type: String, enum: ['now_showing', 'coming_soon'], required: true },
+    status: { type: String, enum: ['now_showing', 'coming_soon', 'archived'], required: true },
     posterUrl: { type: String },
     cast: [
       {

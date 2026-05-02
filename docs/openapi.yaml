@@ -1,0 +1,754 @@
+openapi: 3.0.0
+info:
+  title: CinePal API
+  description: Backend API for CinePal movie booking system. Handles movie catalogues, theatre management, seat bookings, and payments.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+
+components:
+  securitySchemes:
+    ClerkAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Clerk JWT token. Use `Bearer <token>`.
+
+  schemas:
+    Movie:
+      type: object
+      required:
+        - title
+        - description
+        - language
+        - duration
+        - releaseDate
+        - status
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        genre:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        duration:
+          type: integer
+          description: Duration in minutes
+        releaseDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [now_showing, coming_soon, archived]
+        posterUrl:
+          type: string
+        cast:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              profileUrl:
+                type: string
+        rating:
+          type: number
+          minimum: 0
+          maximum: 10
+        featured:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Theatre:
+      type: object
+      required:
+        - name
+        - location
+        - address
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        location:
+          type: string
+        address:
+          type: string
+        imageUrl:
+          type: string
+        halls:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hall'
+
+    Hall:
+      type: object
+      required:
+        - theatreId
+        - name
+        - rows
+        - cols
+      properties:
+        _id:
+          type: string
+        theatreId:
+          type: string
+        name:
+          type: string
+        rows:
+          type: integer
+        cols:
+          type: integer
+        seatLayout:
+          type: array
+          items:
+            $ref: '#/components/schemas/Seat'
+        rowBreaks:
+          type: array
+          items:
+            type: integer
+        colBreaks:
+          type: array
+          items:
+            type: integer
+
+    Seat:
+      type: object
+      properties:
+        row:
+          type: string
+        col:
+          type: integer
+        type:
+          type: string
+          enum: [regular, premium]
+
+    Showtime:
+      type: object
+      required:
+        - movieId
+        - theatreId
+        - hallId
+        - date
+        - startTime
+        - format
+        - price
+      properties:
+        _id:
+          type: string
+        movieId:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Movie'
+        theatreId:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Theatre'
+        hallId:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Hall'
+        date:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+          example: "14:30"
+        format:
+          type: string
+          enum: [2D, 3D, IMAX]
+        price:
+          type: number
+        status:
+          type: string
+          enum: [active, cancelled]
+        seats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShowtimeSeat'
+
+    ShowtimeSeat:
+      allOf:
+        - $ref: '#/components/schemas/Seat'
+        - type: object
+          properties:
+            status:
+              type: string
+              enum: [available, hold, booked]
+
+    Booking:
+      type: object
+      required:
+        - userId
+        - showtimeId
+        - seats
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        showtimeId:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Showtime'
+        seats:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: string
+              col:
+                type: integer
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+        expiresAt:
+          type: string
+          format: date-time
+
+    Payment:
+      type: object
+      required:
+        - bookingId
+        - userId
+        - amount
+        - transactionId
+      properties:
+        _id:
+          type: string
+        bookingId:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/Booking'
+        userId:
+          type: string
+        amount:
+          type: number
+        method:
+          type: string
+          default: card
+        status:
+          type: string
+          enum: [success, refunded, partial_refund]
+        transactionId:
+          type: string
+
+paths:
+  /test:
+    get:
+      summary: Health check
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /movies:
+    get:
+      summary: List movies
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [now_showing, coming_soon, archived]
+        - name: featured
+          in: query
+          schema:
+            type: string
+        - name: includeArchived
+          in: query
+          schema:
+            type: string
+      responses:
+        200:
+          description: List of movies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Movie'
+    post:
+      summary: Create movie (Admin)
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Movie'
+      responses:
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movie'
+
+  /movies/search:
+    get:
+      summary: Search movies by title or location
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Matching movies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Movie'
+
+  /movies/{id}:
+    get:
+      summary: Get movie by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Movie details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Movie'
+    put:
+      summary: Update movie (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Movie'
+      responses:
+        200:
+          description: Updated movie
+    delete:
+      summary: Delete movie (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Deleted
+
+  /theatres:
+    get:
+      summary: List theatres
+      responses:
+        200:
+          description: List of theatres
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Theatre'
+    post:
+      summary: Create theatre (Admin)
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Theatre'
+      responses:
+        201:
+          description: Created
+
+  /theatres/{id}:
+    get:
+      summary: Get theatre with halls
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Theatre details
+    put:
+      summary: Update theatre (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete theatre (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Deleted
+
+  /theatres/{id}/halls:
+    post:
+      summary: Add hall to theatre (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string}
+                rows: {type: integer}
+                cols: {type: integer}
+                rowBreaks: {type: array, items: {type: integer}}
+                colBreaks: {type: array, items: {type: integer}}
+      responses:
+        201:
+          description: Created
+
+  /halls/{id}:
+    put:
+      summary: Update hall (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Delete hall (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Deleted
+
+  /showtimes:
+    get:
+      summary: List showtimes
+      parameters:
+        - name: movieId
+          in: query
+          schema: {type: string}
+        - name: theatreId
+          in: query
+          schema: {type: string}
+        - name: date
+          in: query
+          schema: {type: string, format: date}
+      responses:
+        200:
+          description: List of showtimes
+    post:
+      summary: Create showtime(s) (Admin)
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                movieId: {type: string}
+                theatreId: {type: string}
+                hallId: {type: string}
+                date: {type: string, format: date}
+                startDate: {type: string, format: date}
+                endDate: {type: string, format: date}
+                startTime: {type: string}
+                format: {type: string, enum: [2D, 3D, IMAX]}
+                price: {type: number}
+                schedulingType: {type: string, enum: [single, range]}
+      responses:
+        201:
+          description: Created
+
+  /showtimes/{id}:
+    get:
+      summary: Get showtime details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Showtime details
+    put:
+      summary: Update showtime (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Updated
+    delete:
+      summary: Soft delete showtime (Admin)
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Cancelled
+
+  /bookings:
+    get:
+      summary: List all bookings (Admin)
+      security:
+        - ClerkAuth: []
+      responses:
+        200:
+          description: All bookings
+    post:
+      summary: Atomic seat hold
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                showtimeId: {type: string}
+                seats:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      row: {type: string}
+                      col: {type: integer}
+      responses:
+        201:
+          description: Pending booking created
+        409:
+          description: Seats unavailable
+
+  /bookings/mine:
+    get:
+      summary: List my bookings
+      security:
+        - ClerkAuth: []
+      responses:
+        200:
+          description: User bookings
+
+  /bookings/{id}:
+    get:
+      summary: Get booking details
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Booking details
+    put:
+      summary: Swap seats for pending booking
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seats:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      row: {type: string}
+                      col: {type: integer}
+      responses:
+        200:
+          description: Seats swapped
+    delete:
+      summary: Cancel pending booking
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Cancelled
+
+  /bookings/{id}/cancel:
+    put:
+      summary: Cancel confirmed booking
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Cancelled with potential refund
+
+  /payments:
+    get:
+      summary: List all payments (Admin)
+      security:
+        - ClerkAuth: []
+      responses:
+        200:
+          description: All payments
+    post:
+      summary: Confirm booking via payment
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId: {type: string}
+      responses:
+        201:
+          description: Payment successful and booking confirmed
+
+  /payments/{id}:
+    get:
+      summary: Get payment receipt
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Payment details
+    delete:
+      summary: Process refund
+      security:
+        - ClerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        200:
+          description: Refunded
+
+  /upload:
+    post:
+      summary: Upload image to Cloudinary (Admin)
+      security:
+        - ClerkAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: {type: string}

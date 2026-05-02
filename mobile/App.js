@@ -11,6 +11,12 @@ import { ClerkProvider, useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
 import { PaperProvider, MD3DarkTheme, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Font from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent splash screen from hiding until fonts are loaded
+SplashScreen.preventAutoHideAsync();
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -23,14 +29,36 @@ import TicketScreen from './src/screens/TicketScreen';
 import MyBookingsScreen from './src/screens/MyBookingsScreen';
 import BookingDetailScreen from './src/screens/BookingDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 import SignInScreen from './src/screens/SignInScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
+import TermsScreen from './src/screens/TermsScreen';
 import MovieCarouselScreen from './src/screens/MovieCarouselScreen';
 import CinemasListScreen from './src/screens/CinemasListScreen';
+import LoadingOverlay from './src/components/LoadingOverlay';
 
 // Custom dark Cinema theme
 const CinePalTheme = {
   ...MD3DarkTheme,
+  fonts: {
+    ...MD3DarkTheme.fonts,
+    default: { ...MD3DarkTheme.fonts.default, fontFamily: 'Geist-Regular' },
+    displayLarge: { ...MD3DarkTheme.fonts.displayLarge, fontFamily: 'Geist-Black' },
+    displayMedium: { ...MD3DarkTheme.fonts.displayMedium, fontFamily: 'Geist-Bold' },
+    displaySmall: { ...MD3DarkTheme.fonts.displaySmall, fontFamily: 'Geist-Bold' },
+    headlineLarge: { ...MD3DarkTheme.fonts.headlineLarge, fontFamily: 'Geist-Bold' },
+    headlineMedium: { ...MD3DarkTheme.fonts.headlineMedium, fontFamily: 'Geist-Bold' },
+    headlineSmall: { ...MD3DarkTheme.fonts.headlineSmall, fontFamily: 'Geist-Bold' },
+    titleLarge: { ...MD3DarkTheme.fonts.titleLarge, fontFamily: 'Geist-Bold' },
+    titleMedium: { ...MD3DarkTheme.fonts.titleMedium, fontFamily: 'Geist-Medium' },
+    titleSmall: { ...MD3DarkTheme.fonts.titleSmall, fontFamily: 'Geist-Medium' },
+    labelLarge: { ...MD3DarkTheme.fonts.labelLarge, fontFamily: 'Geist-Medium' },
+    labelMedium: { ...MD3DarkTheme.fonts.labelMedium, fontFamily: 'Geist-Medium' },
+    labelSmall: { ...MD3DarkTheme.fonts.labelSmall, fontFamily: 'Geist-Medium' },
+    bodyLarge: { ...MD3DarkTheme.fonts.bodyLarge, fontFamily: 'Geist-Regular' },
+    bodyMedium: { ...MD3DarkTheme.fonts.bodyMedium, fontFamily: 'Geist-Regular' },
+    bodySmall: { ...MD3DarkTheme.fonts.bodySmall, fontFamily: 'Geist-Regular' },
+  },
   colors: {
     ...MD3DarkTheme.colors,
     primary: '#E50914',
@@ -85,7 +113,7 @@ const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const screenOptions = {
   headerStyle: { backgroundColor: '#0D0D0D', elevation: 0, shadowOpacity: 0 },
   headerTintColor: '#F5F5F5',
-  headerTitleStyle: { fontWeight: 'bold' },
+  headerTitleStyle: { fontFamily: 'Geist-Bold' },
   cardStyle: { backgroundColor: '#0D0D0D' },
 };
 
@@ -115,6 +143,8 @@ function BookingsStack() {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -123,12 +153,17 @@ function MainTabs() {
           backgroundColor: '#1C1C1C',
           borderTopColor: '#2A2A2A',
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 65 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: '#E50914',
         tabBarInactiveTintColor: '#666',
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { 
+          fontSize: 11, 
+          fontWeight: '600',
+          marginBottom: insets.bottom > 0 ? 0 : 4 
+        },
       }}
     >
       <Tab.Screen
@@ -153,7 +188,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="ProfileTab"
-        component={ProfileScreen}
+        component={ProfileStack}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => (
@@ -166,11 +201,21 @@ function MainTabs() {
   );
 }
 
+function ProfileStack() {
+  return (
+    <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
+    </Stack.Navigator>
+  );
+}
+
 function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
       <Stack.Screen name="SignIn" component={SignInScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: true, title: 'Terms & Conditions' }} />
     </Stack.Navigator>
   );
 }
@@ -179,11 +224,7 @@ function RootNavigator() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D0D0D' }}>
-        <ActivityIndicator size="large" color="#E50914" />
-      </View>
-    );
+    return <LoadingOverlay />;
   }
 
   return (
@@ -194,6 +235,23 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded] = Font.useFonts({
+    'Geist-Regular': require('./assets/fonts/Geist-Regular.otf'),
+    'Geist-Medium': require('./assets/fonts/Geist-Medium.otf'),
+    'Geist-Bold': require('./assets/fonts/Geist-Bold.otf'),
+    'Geist-Black': require('./assets/fonts/Geist-Black.otf'),
+  });
+
+  React.useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <ClerkProvider
       publishableKey={CLERK_PUBLISHABLE_KEY || 'pk_test_placeholder'}

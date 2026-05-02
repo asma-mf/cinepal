@@ -1,33 +1,49 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Cinepal",
+    "slug": "cinepal-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/cinepal-app-logo.png",
+    "userInterfaceStyle": "dark",
     "experiments": {
       "reactCompiler": true
     },
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/cinepal-high-res.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0D0D0D"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kavindunirmal.cinepal",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
+        "foregroundImage": "./assets/cinepal-app-logo.png",
+        "backgroundColor": "#0D0D0D"
+      },
+      "package": "com.kavindunirmal.cinepal"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      [
+        "expo-image",
+        {
+          "disableLibdav1d": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5f1a839a-499b-4967-aa2f-4915a42dba1b"
+      }
+    }
   }
 }

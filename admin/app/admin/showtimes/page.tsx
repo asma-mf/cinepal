@@ -52,7 +52,7 @@ export default async function ShowtimesPage() {
   try {
     [showtimes, movies, theatres] = await Promise.all([
       adminFetch('/showtimes'),
-      adminFetch('/movies'),
+      adminFetch('/movies?includeArchived=true'),
       adminFetch('/theatres'),
     ]);
   } catch (err) {
