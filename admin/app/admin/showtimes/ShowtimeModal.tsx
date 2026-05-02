@@ -104,12 +104,14 @@ interface Theatre { _id: string; name: string; }
 interface Hall { _id: string; name: string; rows: number; cols: number; }
 
 export default function ShowtimeModal({
-  movies,
-  theatres,
+  movies: moviesInput,
+  theatres: theatresInput,
 }: {
-  movies: Movie[];
-  theatres: Theatre[];
+  movies: Movie[] | { data: Movie[] };
+  theatres: Theatre[] | { data: Theatre[] };
 }) {
+  const movies = Array.isArray(moviesInput) ? moviesInput : moviesInput.data;
+  const theatres = Array.isArray(theatresInput) ? theatresInput : theatresInput.data;
   const router = useRouter();
   const searchParams = useSearchParams();
   const action = searchParams.get('action');
@@ -119,6 +121,16 @@ export default function ShowtimeModal({
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [halls, setHalls] = useState<Hall[]>([]);
+  const [originalShowtime, setOriginalShowtime] = useState<any>(null);
+
+  const canReinstate = originalShowtime?.status === 'cancelled' && (() => {
+    if (!originalShowtime.date) return false;
+    const showtimeDate = new Date(originalShowtime.date);
+    const [hours, minutes] = (originalShowtime.startTime || "00:00").split(':');
+    showtimeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    const now = new Date();
+    return (showtimeDate.getTime() - now.getTime()) > (24 * 60 * 60 * 1000);
+  })();
 
   const form = useForm<ShowtimeFormValues>({
     resolver: zodResolver(showtimeSchema as any),
@@ -160,6 +172,7 @@ export default function ShowtimeModal({
         const res = await fetch(`/api/proxy/showtimes/${editId}`);
         if (res.ok) {
           const data = await res.json();
+          setOriginalShowtime(data);
           form.reset({
             movieId: data.movieId?._id || data.movieId || '',
             theatreId: data.theatreId?._id || data.theatreId || '',
@@ -179,6 +192,7 @@ export default function ShowtimeModal({
     if (editId && isOpen) {
       fetchShowtime();
     } else if (action === 'new') {
+      setOriginalShowtime(null);
       form.reset({
         movieId: '',
         theatreId: '',
@@ -197,6 +211,29 @@ export default function ShowtimeModal({
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       router.push('/admin/showtimes');
+    }
+  };
+
+  const onReinstate = async () => {
+    if (!editId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/proxy/showtimes/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to reinstate showtime');
+      }
+      toast.success('Showtime reinstated');
+      handleOpenChange(false);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -521,6 +558,12 @@ export default function ShowtimeModal({
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+
+                    {canReinstate && (
+                      <Button type="button" variant="success" size="sm" onClick={onReinstate} disabled={loading}>
+                        Reinstate Showtime
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div />

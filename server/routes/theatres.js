@@ -10,8 +10,34 @@ const rowLabel = (i) => String.fromCharCode(65 + i);
 
 router.get('/', async (req, res) => {
   try {
-    const theatres = await Theatre.find().sort({ name: 1 });
-    res.json(theatres);
+    const { q, page, limit } = req.query;
+    const filter = {};
+
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { location: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    const p = parseInt(page) || 1;
+    const l = parseInt(limit) || 10;
+    const skip = (p - 1) * l;
+
+    const theatres = await Theatre.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(l);
+
+    const total = await Theatre.countDocuments(filter);
+
+    res.json({
+      data: theatres,
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

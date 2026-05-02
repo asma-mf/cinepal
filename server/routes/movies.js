@@ -43,7 +43,7 @@ router.get('/actor-search', requireAdmin, async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const { status, featured, includeArchived } = req.query;
+    const { status, featured, includeArchived, q, page, limit } = req.query;
     const filter = {};
 
     // Base exclusion for archived movies
@@ -61,7 +61,32 @@ router.get('/', async (req, res) => {
       filter.featured = true;
     }
 
-    const movies = await Movie.find(filter).sort({ createdAt: -1 });
+    // Search filter
+    if (q) {
+      filter.title = { $regex: q, $options: 'i' };
+    }
+
+    // Pagination
+    const p = parseInt(page) || 1;
+    const l = parseInt(limit) || 10;
+    const skip = (p - 1) * l;
+
+    const movies = await Movie.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(l);
+
+    if (page || limit) {
+      const total = await Movie.countDocuments(filter);
+      return res.json({
+        data: movies,
+        total,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(total / l),
+      });
+    }
+
     res.json(movies);
   } catch (err) {
     res.status(500).json({ error: err.message });

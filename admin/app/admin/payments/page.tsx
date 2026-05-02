@@ -1,6 +1,5 @@
+import { Suspense } from 'react';
 import { adminFetch } from '@/lib/api';
-
-export const dynamic = 'force-dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table,
@@ -12,6 +11,10 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { RevenueChart, StatusDistributionChart } from './RevenueChart';
+import { SearchInput } from '@/components/SearchInput';
+import { PaginationWrapper } from '@/components/Pagination';
+
+export const dynamic = 'force-dynamic';
 
 interface Payment {
   _id: string;
@@ -29,10 +32,36 @@ interface Payment {
   createdAt: string;
 }
 
-export default async function AdminPaymentsPage() {
+interface PaymentsResponse {
+  data: Payment[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export default async function AdminPaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const { q = '', page = '1' } = await searchParams;
+
   let payments: Payment[] = [];
+  let totalPages = 1;
+  let totalRevenue = 0;
+  let totalTransactions = 0;
+
   try {
-    payments = await adminFetch('/payments');
+    const res: PaymentsResponse = await adminFetch(`/payments?q=${q}&page=${page}&limit=10`);
+    payments = res.data;
+    totalPages = res.totalPages;
+    totalTransactions = res.total;
+    totalRevenue = payments.reduce((sum, p) => {
+      if (p.status === 'success') return sum + p.amount;
+      if (p.status === 'partial_refund') return sum + (p.amount / 2);
+      return sum;
+    }, 0);
   } catch (error) {
     console.error('Failed to fetch payments:', error);
   }
@@ -50,14 +79,6 @@ export default async function AdminPaymentsPage() {
     }
   };
 
-  const totalRevenue = payments.reduce((sum, p) => {
-    if (p.status === 'success') return sum + p.amount;
-    if (p.status === 'partial_refund') return sum + (p.amount / 2);
-    return sum;
-  }, 0);
-
-  const totalTransactions = payments.length;
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -70,7 +91,7 @@ export default async function AdminPaymentsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-[#1c1c1c] border-[#333]">
           <CardHeader className="pb-2">
-            <CardDescription>Total Revenue</CardDescription>
+            <CardDescription>Total Revenue (Page)</CardDescription>
             <CardTitle className="text-3xl font-bold">LKR {totalRevenue.toLocaleString()}</CardTitle>
           </CardHeader>
         </Card>
@@ -102,6 +123,12 @@ export default async function AdminPaymentsPage() {
             <StatusDistributionChart payments={payments} />
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <Suspense fallback={<div className="h-10 w-[300px] bg-muted animate-pulse rounded-md" />}>
+          <SearchInput placeholder="Search by Transaction ID or User ID..." />
+        </Suspense>
       </div>
 
       <Card>
@@ -150,6 +177,8 @@ export default async function AdminPaymentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <PaginationWrapper totalPages={totalPages} />
     </div>
   );
 }

@@ -7,20 +7,58 @@ const { requireAdmin } = require('../middleware/auth');
 
 router.get('/', async (req, res) => {
   try {
+    const { movieId, theatreId, date, timeframe, status, page, limit } = req.query;
     const filter = {};
-    if (req.query.movieId) filter.movieId = req.query.movieId;
-    if (req.query.theatreId) filter.theatreId = req.query.theatreId;
-    if (req.query.date) {
-      const day = new Date(req.query.date);
+
+    if (movieId) filter.movieId = movieId;
+    if (theatreId) filter.theatreId = theatreId;
+    
+    // Status filter
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+
+    // Timeframe / Date filter
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    if (timeframe === 'today') {
+      filter.date = { $gte: startOfToday, $lte: endOfToday };
+    } else if (timeframe === 'upcoming') {
+      filter.date = { $gt: endOfToday };
+    } else if (timeframe === 'previous') {
+      filter.date = { $lt: startOfToday };
+    } else if (date) {
+      const day = new Date(date);
       const next = new Date(day);
       next.setDate(next.getDate() + 1);
       filter.date = { $gte: day, $lt: next };
     }
+
+    const p = parseInt(page) || 1;
+    const l = parseInt(limit) || 1000; // Default to large limit if not specified
+    const skip = (p - 1) * l;
+
     const showtimes = await Showtime.find(filter)
       .populate('movieId', 'title posterUrl duration')
       .populate('theatreId', 'name location')
       .populate('hallId', 'name rows cols rowBreaks colBreaks')
-      .sort({ date: 1, startTime: 1 });
+      .sort({ date: 1, startTime: 1 })
+      .skip(skip)
+      .limit(l);
+
+    if (page || limit) {
+      const total = await Showtime.countDocuments(filter);
+      return res.json({
+        data: showtimes,
+        total,
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(total / l),
+      });
+    }
+
     res.json(showtimes);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -104,6 +142,27 @@ router.patch('/cancel-future/:movieId', requireAdmin, async (req, res) => {
 
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
+    const { status } = req.body;
+    
+    // Safety check for reinstating cancelled shows
+    if (status === 'active') {
+      const existing = await Showtime.findById(req.params.id);
+      if (existing && existing.status === 'cancelled') {
+        const showtimeDate = new Date(existing.date);
+        const [hours, minutes] = (existing.startTime || "00:00").split(':');
+        showtimeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        const now = new Date();
+        const diffInHours = (showtimeDate - now) / (1000 * 60 * 60);
+        
+        if (diffInHours < 24) {
+          return res.status(400).json({ 
+            error: 'Cannot reinstate a cancelled showtime that is less than 24 hours away.' 
+          });
+        }
+      }
+    }
+
     const showtime = await Showtime.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,

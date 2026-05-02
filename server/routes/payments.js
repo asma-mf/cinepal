@@ -10,7 +10,21 @@ const { randomBytes } = require('crypto');
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const payments = await Payment.find().populate({
+    const { q, page, limit } = req.query;
+    const filter = {};
+
+    if (q) {
+      filter.$or = [
+        { transactionId: { $regex: q, $options: 'i' } },
+        { userId: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    const p = parseInt(page) || 1;
+    const l = parseInt(limit) || 10;
+    const skip = (p - 1) * l;
+
+    const payments = await Payment.find(filter).populate({
       path: 'bookingId',
       populate: {
         path: 'showtimeId',
@@ -18,8 +32,19 @@ router.get('/', requireAuth, async (req, res) => {
           { path: 'movieId', select: 'title' },
         ],
       },
-    }).sort({ createdAt: -1 });
-    res.json(payments);
+    }).sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(l);
+
+    const total = await Payment.countDocuments(filter);
+
+    res.json({
+      data: payments,
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

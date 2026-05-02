@@ -23,6 +23,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
+import { SearchInput } from '@/components/SearchInput';
+import { PaginationWrapper } from '@/components/Pagination';
+
 export const dynamic = 'force-dynamic';
 
 interface Movie {
@@ -37,17 +40,41 @@ interface Movie {
   posterUrl?: string;
 }
 
-export default async function MoviesPage() {
+interface MoviesResponse {
+  data: Movie[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export default async function MoviesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const { q = '', page = '1' } = await searchParams;
+  
   let movies: Movie[] = [];
+  let totalPages = 1;
+  let totalMovies = 0;
+
   try {
-    movies = await adminFetch('/movies?includeArchived=true');
+    const res: MoviesResponse | Movie[] = await adminFetch(`/movies?includeArchived=true&q=${q}&page=${page}&limit=10`);
+    if ('data' in res) {
+      movies = res.data;
+      totalPages = res.totalPages;
+      totalMovies = res.total;
+    } else {
+      movies = res as Movie[];
+      totalMovies = movies.length;
+    }
   } catch (error) {
     console.error('Failed to fetch movies:', error);
     movies = [];
   }
 
   // Calculate stats
-  const totalMovies = movies.length;
   const nowShowing = movies.filter(m => m.status === 'now_showing').length;
   const comingSoon = movies.filter(m => m.status === 'coming_soon').length;
   
@@ -114,10 +141,19 @@ export default async function MoviesPage() {
         </Card>
       </div>
 
+     
+
       <Card>
         <CardHeader>
-          <CardTitle>Movie Catalogue</CardTitle>
-          <CardDescription>Manage your cinema's available and upcoming movies.</CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>Movie Catalogue</CardTitle>
+              <CardDescription>Manage your cinema's available and upcoming movies.</CardDescription>
+            </div>
+            <Suspense fallback={<div className="h-10 w-[300px] bg-muted animate-pulse rounded-md" />}>
+              <SearchInput placeholder="Search movies by title..." />
+            </Suspense>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -159,7 +195,7 @@ export default async function MoviesPage() {
                     <div className="flex flex-wrap gap-1.5 items-center">
                       <Badge variant={
                         movie.status === 'now_showing' ? 'default' : 
-                        movie.status === 'archived' ? 'destructive' : 'secondary'
+                        movie.status === 'archived' ? 'secondary' : 'outline'
                       }>
                         {movie.status.replace('_', ' ')}
                       </Badge>
@@ -196,6 +232,8 @@ export default async function MoviesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <PaginationWrapper totalPages={totalPages} />
       
       <Suspense fallback={null}>
         <MovieModal />
