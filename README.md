@@ -64,11 +64,37 @@ Authentication and user management are seamlessly handled by **Clerk**, providin
 CinePal uses a modular architecture where the Express backend serves as a single source of truth for both the mobile and web clients.
 
 ```mermaid
-graph LR
-    A[React Native Mobile] -- REST API --> B[Express Backend]
-    C[Next.js Admin] -- REST API --> B
-    B -- Mongoose --> D[(MongoDB Atlas)]
-    B -- Clerk SDK --> E[Clerk Auth]
+graph TB
+    subgraph Clients ["Client Layer"]
+        Mobile["React Native Mobile App (User)"]
+        Admin["Next.js Web Dashboard (Admin)"]
+    end
+
+    subgraph API ["Backend Layer (Express API)"]
+        Routes["API Routes"]
+        Middleware["Auth & Validation Middleware"]
+        Controllers["Business Logic"]
+    end
+
+    subgraph External ["External Services"]
+        Clerk["Clerk Auth (User Mgmt)"]
+        Cloudinary["Cloudinary (Asset Storage)"]
+    end
+
+    subgraph Data ["Data Layer"]
+        MongoDB[("MongoDB Atlas")]
+    end
+
+    %% Connections
+    Mobile -- "REST / HTTPS" --> Routes
+    Admin -- "REST / HTTPS" --> Routes
+    
+    Routes --> Middleware
+    Middleware --> Controllers
+    
+    Middleware -- "JWT Validation" --> Clerk
+    Controllers -- "Mongoose" --> MongoDB
+    Controllers -- "Uploads" --> Cloudinary
 ```
 
 ---
