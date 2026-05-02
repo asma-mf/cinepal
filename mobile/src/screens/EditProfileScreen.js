@@ -42,6 +42,23 @@ export default function EditProfileScreen({ navigation }) {
     }
   };
 
+  // Helper to convert URI to Blob robustly
+  const getBlobFromUri = async (uri) => {
+    return await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function () {
+        resolve(xhr.response);
+      };
+      xhr.onerror = function (e) {
+        console.error('getBlobFromUri Error:', e);
+        reject(new TypeError("Network request failed"));
+      };
+      xhr.responseType = "blob";
+      xhr.open("GET", uri, true);
+      xhr.send(null);
+    });
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setLoading(true);
@@ -59,8 +76,7 @@ export default function EditProfileScreen({ navigation }) {
 
       // 2. Upload image if selected
       if (imageUri) {
-        const response = await fetch(imageUri);
-        const blob = await response.blob();
+        const blob = await getBlobFromUri(imageUri);
         await user.setProfileImage({ file: blob });
       }
 

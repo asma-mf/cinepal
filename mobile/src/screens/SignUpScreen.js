@@ -1,5 +1,5 @@
 // Sign-up screen using Clerk's useSignUp hook with a paged flow
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Text, TextInput, Button, Snackbar, useTheme, Avatar, Checkbox, ProgressBar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +41,34 @@ export default function SignUpScreen({ navigation }) {
     setSnackbar({ visible: true, message: msg });
     Alert.alert('Notice', String(msg));
   };
+
+  // Helper to convert URI to Blob robustly
+  const getBlobFromUri = async (uri) => {
+    return await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onload = function () {
+        resolve(xhr.response);
+      };
+      xhr.onerror = function (e) {
+        console.error('getBlobFromUri Error:', e);
+        reject(new TypeError("Network request failed"));
+      };
+      xhr.responseType = "blob";
+      xhr.open("GET", uri, true);
+      xhr.send(null);
+    });
+  };
+
+  // Resume signup flow if it's already in progress (e.g. app restart during verification)
+  useEffect(() => {
+    if (isLoaded && signUp) {
+      if (signUp.status === 'missing_requirements' && signUp.unverifiedFields.includes('email_address')) {
+        console.log('Resuming signup flow at verification step');
+        setPendingVerification(true);
+        setEmail(signUp.emailAddress || '');
+      }
+    }
+  }, [isLoaded, signUp]);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -202,12 +230,10 @@ export default function SignUpScreen({ navigation }) {
             // Upload profile picture if selected
             if (imageUri) {
               try {
-                const activeSession = client.sessions.find(s => s.id === session.id);
-                if (activeSession && activeSession.user) {
-                  const response = await fetch(imageUri);
-                  const blob = await response.blob();
-                  await activeSession.user.setProfileImage({ file: blob });
-                }
+                // Use session.user directly as it's the most reliable reference during finalize
+                const blob = await getBlobFromUri(imageUri);
+                await session.user.setProfileImage({ file: blob });
+                console.log('Profile image uploaded successfully during signup');
               } catch (e) {
                 console.log('Failed to upload profile image during signup:', e);
               }
