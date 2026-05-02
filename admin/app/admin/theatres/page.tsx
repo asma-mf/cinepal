@@ -1,9 +1,6 @@
 import { Suspense } from 'react';
-// Theatres list page
 import Link from 'next/link';
 import { adminFetch } from '@/lib/api';
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -18,6 +15,8 @@ import { Plus, MapPin, Building2 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import TheatreModal from './TheatreModal';
 import { TheatreActions } from './TheatreActions';
+import { SearchInput } from '@/components/SearchInput';
+import { PaginationWrapper } from '@/components/Pagination';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,10 +28,28 @@ interface Theatre {
   imageUrl?: string;
 }
 
-export default async function TheatresPage() {
+interface TheatresResponse {
+  data: Theatre[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export default async function TheatresPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const { q = '', page = '1' } = await searchParams;
+
   let theatres: Theatre[] = [];
+  let totalPages = 1;
+
   try {
-    theatres = await adminFetch('/theatres');
+    const res: TheatresResponse = await adminFetch(`/theatres?q=${q}&page=${page}&limit=10`);
+    theatres = res.data;
+    totalPages = res.totalPages;
   } catch {
     theatres = [];
   }
@@ -50,6 +67,12 @@ export default async function TheatresPage() {
             Add Theatre
           </Link>
         </Button>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <Suspense fallback={<div className="h-10 w-[300px] bg-muted animate-pulse rounded-md" />}>
+          <SearchInput placeholder="Search by name or location..." />
+        </Suspense>
       </div>
 
       <Card>
@@ -106,6 +129,8 @@ export default async function TheatresPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <PaginationWrapper totalPages={totalPages} />
 
       <Suspense fallback={null}>
         <TheatreModal />

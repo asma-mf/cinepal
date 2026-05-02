@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { adminFetch } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
+import { SearchInput } from '@/components/SearchInput';
+import { PaginationWrapper } from '@/components/Pagination';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,10 +33,28 @@ interface Booking {
   createdAt: string;
 }
 
-export default async function AdminBookingsPage() {
+interface BookingsResponse {
+  data: Booking[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export default async function AdminBookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const { q = '', page = '1' } = await searchParams;
+
   let bookings: Booking[] = [];
+  let totalPages = 1;
+
   try {
-    bookings = await adminFetch('/bookings');
+    const res: BookingsResponse = await adminFetch(`/bookings?q=${q}&page=${page}&limit=10`);
+    bookings = res.data;
+    totalPages = res.totalPages;
   } catch (error) {
     console.error('Failed to fetch bookings:', error);
   }
@@ -41,7 +62,7 @@ export default async function AdminBookingsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Confirmed</Badge>;
+        return <Badge variant="success">Confirmed</Badge>;
       case 'pending':
         return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">Pending</Badge>;
       case 'cancelled':
@@ -58,6 +79,12 @@ export default async function AdminBookingsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Bookings</h1>
           <p className="text-sm text-muted-foreground">Monitor all customer bookings and their status.</p>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <Suspense fallback={<div className="h-10 w-[300px] bg-muted animate-pulse rounded-md" />}>
+          <SearchInput placeholder="Search by User ID or Booking ID..." />
+        </Suspense>
       </div>
 
       <Card>
@@ -77,7 +104,7 @@ export default async function AdminBookingsPage() {
             <TableBody>
               {bookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No bookings found.
                   </TableCell>
                 </TableRow>
@@ -123,6 +150,8 @@ export default async function AdminBookingsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <PaginationWrapper totalPages={totalPages} />
     </div>
   );
 }

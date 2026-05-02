@@ -8,7 +8,25 @@ const { requireAuth } = require('../middleware/auth');
 // Return all bookings (for admin dashboard)
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const bookings = await Booking.find()
+    const { q, page, limit } = req.query;
+    const filter = {};
+
+    if (q) {
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(q);
+      if (isObjectId) {
+        filter._id = q;
+      } else {
+        filter.$or = [
+          { userId: { $regex: q, $options: 'i' } },
+        ];
+      }
+    }
+
+    const p = parseInt(page) || 1;
+    const l = parseInt(limit) || 10;
+    const skip = (p - 1) * l;
+
+    const bookings = await Booking.find(filter)
       .populate({
         path: 'showtimeId',
         populate: [
@@ -17,8 +35,19 @@ router.get('/', requireAuth, async (req, res) => {
           { path: 'hallId', select: 'name' },
         ],
       })
-      .sort({ createdAt: -1 });
-    res.json(bookings);
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(l);
+
+    const total = await Booking.countDocuments(filter);
+
+    res.json({
+      data: bookings,
+      total,
+      page: p,
+      limit: l,
+      totalPages: Math.ceil(total / l),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

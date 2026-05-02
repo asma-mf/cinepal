@@ -249,6 +249,25 @@ components:
           enum: [success, refunded, partial_refund]
         transactionId:
           type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
 
 paths:
   /test:
@@ -267,7 +286,7 @@ paths:
 
   /movies:
     get:
-      summary: List movies
+      summary: List movies (Supports Search & Pagination)
       parameters:
         - name: status
           in: query
@@ -282,15 +301,27 @@ paths:
           in: query
           schema:
             type: string
+        - name: q
+          in: query
+          description: Search by title (regex)
+          schema: {type: string}
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
       responses:
         200:
-          description: List of movies
+          description: List of movies or paginated object
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Movie'
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Movie'
+                  - $ref: '#/components/schemas/PaginatedResponse'
     post:
       summary: Create movie (Admin)
       security:
@@ -379,16 +410,25 @@ paths:
 
   /theatres:
     get:
-      summary: List theatres
+      summary: List theatres (Supports Search & Pagination)
+      parameters:
+        - name: q
+          in: query
+          description: Search by name or location
+          schema: {type: string}
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
       responses:
         200:
-          description: List of theatres
+          description: Paginated list of theatres
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Theatre'
+                $ref: '#/components/schemas/PaginatedResponse'
     post:
       summary: Create theatre (Admin)
       security:
@@ -518,7 +558,7 @@ paths:
 
   /showtimes:
     get:
-      summary: List showtimes
+      summary: List showtimes (Supports Timeframe & Pagination)
       parameters:
         - name: movieId
           in: query
@@ -529,9 +569,29 @@ paths:
         - name: date
           in: query
           schema: {type: string, format: date}
+        - name: timeframe
+          in: query
+          schema: {type: string, enum: [today, upcoming, previous]}
+        - name: status
+          in: query
+          schema: {type: string, enum: [active, cancelled, all]}
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 100}
       responses:
         200:
-          description: List of showtimes
+          description: List of showtimes or paginated object
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Showtime'
+                  - $ref: '#/components/schemas/PaginatedResponse'
     post:
       summary: Create showtime(s) (Admin)
       security:
@@ -595,12 +655,27 @@ paths:
 
   /bookings:
     get:
-      summary: List all bookings (Admin)
+      summary: List all bookings (Supports Search & Pagination)
       security:
         - ClerkAuth: []
+      parameters:
+        - name: q
+          in: query
+          description: Search by User ID or Booking ID
+          schema: {type: string}
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
       responses:
         200:
-          description: All bookings
+          description: Paginated list of bookings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
     post:
       summary: Atomic seat hold
       security:
@@ -703,12 +778,27 @@ paths:
 
   /payments:
     get:
-      summary: List all payments (Admin)
+      summary: List all payments (Supports Search & Pagination)
       security:
         - ClerkAuth: []
+      parameters:
+        - name: q
+          in: query
+          description: Search by Transaction ID or User ID
+          schema: {type: string}
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 10}
       responses:
         200:
-          description: All payments
+          description: Paginated list of payments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
     post:
       summary: Confirm booking via payment
       security:
