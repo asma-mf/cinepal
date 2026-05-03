@@ -10,9 +10,9 @@ export default {
       reactCompiler: true
     },
     splash: {
-      image: "./assets/playstore-icon.png",
+      image: "./assets/playstore-transparent.png",
       resizeMode: "contain",
-      backgroundColor: "#0D0D0D"
+      backgroundColor: "#1B140D"
     },
     ios: {
       supportsTablet: true,
@@ -26,7 +26,7 @@ export default {
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/playstore-icon.png",
-        backgroundColor: "#0D0D0D"
+        backgroundColor: "#1B140D"
       },
       package: "com.kavindunirmal.cinepal"
     },

@@ -154,13 +154,18 @@ router.post('/', requireAdmin, async (req, res) => {
     const movie = await Movie.create(movieData);
     res.status(201).json(movie);
 
-    // Fire broadcast in the background (after response sent) so it doesn't block
+    // Fire broadcast in the background
     if (broadcast === true) {
-      sendBroadcast(
-        '🎬 New Movie on CinePal!',
-        `"${movie.title}" is now available. Book your seats today!`,
-        { screen: 'Movies', movieId: movie._id.toString() }
-      ).catch((err) => console.error('[Notifications] Broadcast failed:', err.message));
+      const title = movie.status === 'coming_soon' 
+        ? `⏳ Coming Soon: ${movie.title}`
+        : '🎬 Now Playing on CinePal!';
+      
+      const body = movie.status === 'coming_soon'
+        ? `"${movie.title}" is coming soon to theaters. Get ready!`
+        : `"${movie.title}" is now available. Book your seats today!`;
+
+      sendBroadcast(title, body, { screen: 'Movies', movieId: movie._id.toString() })
+        .catch((err) => console.error('[Notifications] Broadcast failed:', err.message));
     }
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -169,11 +174,24 @@ router.post('/', requireAdmin, async (req, res) => {
 
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
+    // Find the current movie state to detect status changes
+    const oldMovie = await Movie.findById(req.params.id);
+    if (!oldMovie) return res.status(404).json({ error: 'Movie not found' });
+
     const movie = await Movie.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
-    if (!movie) return res.status(404).json({ error: 'Movie not found' });
+
+    // Check if status changed from coming_soon to now_showing
+    if (oldMovie.status === 'coming_soon' && movie.status === 'now_showing') {
+      sendBroadcast(
+        '🍿 Now in Theaters!',
+        `"${movie.title}" is now playing! Book your tickets for the premiere.`,
+        { screen: 'Movies', movieId: movie._id.toString() }
+      ).catch((err) => console.error('[Notifications] Transition broadcast failed:', err.message));
+    }
+
     res.json(movie);
   } catch (err) {
     res.status(400).json({ error: err.message });

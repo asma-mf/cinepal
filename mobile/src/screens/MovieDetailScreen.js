@@ -157,12 +157,16 @@ export default function MovieDetailScreen({ route, navigation }) {
           <Button
             mode="contained"
             onPress={() => navigation.navigate('ShowtimeSelection', { movieId: movie._id })}
-            style={styles.bookButton}
+            disabled={movie.status === 'coming_soon'}
+            style={[
+              styles.bookButton,
+              movie.status === 'coming_soon' && { backgroundColor: '#3A3A3A' }
+            ]}
             contentStyle={styles.bookButtonContent}
             labelStyle={styles.bookButtonLabel}
-            icon="ticket"
+            icon={movie.status === 'coming_soon' ? 'calendar-clock' : 'ticket'}
           >
-            Book Tickets
+            {movie.status === 'coming_soon' ? 'Tickets Available Soon' : 'Book Tickets'}
           </Button>
         </View>
       </ScrollView>
