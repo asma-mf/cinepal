@@ -63,7 +63,7 @@ export async function registerForPushNotifications(authToken) {
 
   // Register the token with our backend
   try {
-    await fetch(`${API_BASE_URL}/api/notifications/token`, {
+    await fetch(`${API_BASE_URL}/notifications/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -89,7 +89,7 @@ export async function registerForPushNotifications(authToken) {
  */
 export async function deregisterPushNotifications(authToken) {
   try {
-    await fetch(`${API_BASE_URL}/api/notifications/token`, {
+    await fetch(`${API_BASE_URL}/notifications/token`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${authToken}` },
     });
@@ -106,7 +106,7 @@ export async function deregisterPushNotifications(authToken) {
  */
 export async function updateNotificationPrefs(authToken, notifyNewMovies) {
   try {
-    await fetch(`${API_BASE_URL}/api/notifications/prefs`, {
+    await fetch(`${API_BASE_URL}/notifications/prefs`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
