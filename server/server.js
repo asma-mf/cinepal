@@ -26,6 +26,23 @@ const { clerkAuthLatency } = require('./utils/metrics');
 
 const app = express();
 
+// Basic Auth for the /metrics endpoint
+app.use('/metrics', (req, res, next) => {
+  if (!process.env.METRICS_USER || !process.env.METRICS_PASSWORD) {
+    return next(); // Skip auth if not configured in environment
+  }
+  
+  const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+  const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
+
+  if (login === process.env.METRICS_USER && password === process.env.METRICS_PASSWORD) {
+    return next();
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="401"');
+  res.status(401).send('Authentication required.');
+});
+
 const metricsMiddleware = promBundle({
   includeMethod: true,
   includePath: true,
