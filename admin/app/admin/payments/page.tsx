@@ -38,6 +38,7 @@ interface PaymentsResponse {
   page: number;
   limit: number;
   totalPages: number;
+  totalRevenue: number;
 }
 
 export default async function AdminPaymentsPage({
@@ -57,11 +58,7 @@ export default async function AdminPaymentsPage({
     payments = res.data;
     totalPages = res.totalPages;
     totalTransactions = res.total;
-    totalRevenue = payments.reduce((sum, p) => {
-      if (p.status === 'success') return sum + p.amount;
-      if (p.status === 'partial_refund') return sum + (p.amount / 2);
-      return sum;
-    }, 0);
+    totalRevenue = res.totalRevenue || 0;
   } catch (error) {
     console.error('Failed to fetch payments:', error);
   }

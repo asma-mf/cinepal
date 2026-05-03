@@ -22,7 +22,7 @@ const paymentRoutes = require('./routes/payments');
 
 const { getStatusPage } = require('./utils/statusTemplate');
 const promBundle = require('express-prom-bundle');
-const { clerkAuthLatency } = require('./utils/metrics');
+const { clerkAuthLatency, initBusinessMetrics } = require('./utils/metrics');
 
 const app = express();
 
@@ -87,6 +87,7 @@ app.use('/api/payments', paymentRoutes);
 // Start Server
 const port = process.env.PORT || 5000;
 connectDB().then(() => {
+  initBusinessMetrics();
   app.listen(port, () => console.log(`Server running on port ${port}`));
 });
 
