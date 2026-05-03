@@ -26,6 +26,12 @@ graph TB
         MongoDB[("MongoDB Atlas")]
     end
 
+    subgraph Monitoring ["Monitoring Layer (Docker)"]
+        Prometheus["Prometheus"]
+        Grafana["Grafana"]
+        MongoExporter["MongoDB Exporter"]
+    end
+
     %% Connections
     Mobile -- "REST / HTTPS" --> Routes
     Admin -- "REST / HTTPS" --> Routes
@@ -36,6 +42,13 @@ graph TB
     Middleware -- "JWT Validation" --> Clerk
     Controllers -- "Mongoose" --> MongoDB
     Controllers -- "Uploads" --> Cloudinary
+    
+    %% Monitoring Connections
+    Routes -- "/metrics" --> Prometheus
+    Admin -- "/api/metrics" --> Prometheus
+    MongoDB --> MongoExporter
+    MongoExporter -- "/metrics" --> Prometheus
+    Prometheus -- "Data Source" --> Grafana
 ```
 
 ## Component Breakdown
@@ -67,3 +80,8 @@ graph TB
 ### 6. Cloudinary
 - **Role**: Cloud-based media management.
 - **Functions**: Hosting movie posters, theatre images, and other visual assets.
+
+### 7. Observability Stack
+- **Role**: Application performance monitoring.
+- **Tech**: Prometheus (Time-series DB), Grafana (Dashboards), Docker.
+- **Functions**: Scrape RED (Rate, Errors, Duration) metrics from Express and Next.js, and USE metrics from MongoDB Atlas via `mongodb-exporter`. Visualizes business KPIs (Total Bookings, Total Revenue).

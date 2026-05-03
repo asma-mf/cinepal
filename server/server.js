@@ -21,8 +21,17 @@ const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
 
 const { getStatusPage } = require('./utils/statusTemplate');
+const promBundle = require('express-prom-bundle');
+const { clerkAuthLatency } = require('./utils/metrics');
 
 const app = express();
+
+const metricsMiddleware = promBundle({
+  includeMethod: true,
+  includePath: true,
+  promClient: { collectDefaultMetrics: false }
+});
+app.use(metricsMiddleware);
 
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS 
@@ -38,7 +47,15 @@ app.get('/', (req, res) => {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(clerkMiddleware());
+
+// Track Clerk middleware latency
+app.use((req, res, next) => {
+  const end = clerkAuthLatency.startTimer();
+  clerkMiddleware()(req, res, (err) => {
+    end();
+    next(err);
+  });
+});
 
 app.get('/api/test', (req, res) => res.json({ ok: true }));
 
