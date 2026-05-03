@@ -20,6 +20,8 @@ const showtimeRoutes = require('./routes/showtimes');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
 
+const { getStatusPage } = require('./utils/statusTemplate');
+
 const app = express();
 
 const corsOptions = {
@@ -28,6 +30,12 @@ const corsOptions = {
     : ['http://localhost:3000', 'http://localhost:5173'], // Default dev origins
   credentials: true,
 };
+
+// Root route for status page (Public)
+app.get('/', (req, res) => {
+  res.send(getStatusPage());
+});
+
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(clerkMiddleware());
