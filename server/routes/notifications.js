@@ -63,4 +63,19 @@ router.patch('/prefs', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/notifications/prefs
+ * Get notification preferences for the authenticated user.
+ */
+router.get('/prefs', requireAuth, async (req, res) => {
+  try {
+    const tokenDoc = await NotificationToken.findOne({ userId: req.userId });
+    res.json({
+      notifyNewMovies: tokenDoc ? tokenDoc.notifyNewMovies : true, // Default to true if no token yet
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

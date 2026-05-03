@@ -1,16 +1,42 @@
 // Profile screen: user info and sign-out
 import React from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { Text, Avatar, Button, List, Divider, Surface, useTheme } from 'react-native-paper';
+import { Text, Avatar, Button, List, Divider, Surface, useTheme, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useUser, useClerk } from '@clerk/expo';
+import { useUser, useClerk, useAuth } from '@clerk/expo';
+import { getNotificationPrefs, updateNotificationPrefs } from '../services/notificationService';
 
 export default function ProfileScreen({ navigation }) {
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { getToken } = useAuth();
   const theme = useTheme();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [notifyNewMovies, setNotifyNewMovies] = React.useState(true);
+  const [loadingPrefs, setLoadingPrefs] = React.useState(true);
+
+  // Fetch preferences on mount
+  React.useEffect(() => {
+    async function fetchPrefs() {
+      const token = await getToken();
+      if (token) {
+        const prefs = await getNotificationPrefs(token);
+        setNotifyNewMovies(prefs.notifyNewMovies);
+      }
+      setLoadingPrefs(false);
+    }
+    fetchPrefs();
+  }, [getToken]);
+
+  const toggleNotifications = async () => {
+    const newValue = !notifyNewMovies;
+    setNotifyNewMovies(newValue);
+    const token = await getToken();
+    if (token) {
+      await updateNotificationPrefs(token, newValue);
+    }
+  };
 
   const onRefresh = React.useCallback(async () => {
     if (!user) return;
@@ -99,6 +125,29 @@ export default function ProfileScreen({ navigation }) {
             left={(props) => <List.Icon {...props} icon="shield-check-outline" color="#22c55e" />}
             titleStyle={styles.listTitle}
             descriptionStyle={[styles.listDesc, { color: '#22c55e' }]}
+          />
+        </Surface>
+
+        {/* Notification Preferences */}
+        <Surface style={[styles.card, { marginTop: 12 }]} elevation={1}>
+          <List.Subheader style={styles.subheader}>Preferences</List.Subheader>
+          <List.Item
+            title="New Movie Notifications"
+            description="Receive a push notification when we add a new movie to our catalog."
+            left={(props) => <List.Icon {...props} icon="bell-outline" color={theme.colors.primary} />}
+            right={() => (
+              <View style={{ justifyContent: 'center' }}>
+                <Switch 
+                  value={notifyNewMovies} 
+                  onValueChange={toggleNotifications} 
+                  disabled={loadingPrefs}
+                  color={theme.colors.primary}
+                />
+              </View>
+            )}
+            titleStyle={styles.listTitle}
+            descriptionStyle={styles.listDesc}
+            descriptionNumberOfLines={2}
           />
         </Surface>
 

@@ -99,6 +99,26 @@ export async function deregisterPushNotifications(authToken) {
 }
 
 /**
+ * Fetches the user's notification preferences from the backend.
+ *
+ * @param {string} authToken
+ * @returns {Promise<{notifyNewMovies: boolean}>}
+ */
+export async function getNotificationPrefs(authToken) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/notifications/prefs`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!res.ok) throw new Error('Failed to fetch prefs');
+    return await res.json();
+  } catch (err) {
+    console.error('[Notifications] Failed to get prefs:', err);
+    return { notifyNewMovies: true };
+  }
+}
+
+/**
  * Updates the user's notification preference for new movie broadcasts.
  *
  * @param {string} authToken
