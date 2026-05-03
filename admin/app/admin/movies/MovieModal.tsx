@@ -65,6 +65,7 @@ export default function MovieModal() {
   const [loading, setLoading] = useState(false);
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterUrl, setPosterUrl] = useState('');
+  const [broadcastNotification, setBroadcastNotification] = useState(true);
 
   const form = useForm<MovieFormValues>({
     resolver: zodResolver(movieSchema as any),
@@ -183,6 +184,8 @@ export default function MovieModal() {
         posterUrl: uploadedPosterUrl,
         rating: values.rating !== '' ? Number(values.rating) : undefined,
         featured: values.featured,
+        // Only send broadcast flag for new movies
+        ...(editId ? {} : { broadcast: broadcastNotification }),
       };
 
       const url = editId ? `/api/proxy/movies/${editId}` : '/api/proxy/movies';
@@ -470,6 +473,27 @@ export default function MovieModal() {
                 </FormItem>
               )}
             />
+
+            {/* Broadcast notification toggle — new movies only */}
+            {!editId && (
+              <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <label className="text-base font-medium">Broadcast Notification</label>
+                    <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px] uppercase tracking-wider">
+                      Push
+                    </Badge>
+                  </div>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    Notify all opted-in users about this new movie.
+                  </p>
+                </div>
+                <Switch
+                  checked={broadcastNotification}
+                  onCheckedChange={setBroadcastNotification}
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>

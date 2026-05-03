@@ -8,3 +8,8 @@ dist/
 .codestudio/
 skills/
 *skills-lock.json
+.local_gitignore
+
+# Firebase
+firebase-service-account.json
+mobile/google-services.json

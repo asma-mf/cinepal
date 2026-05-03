@@ -8,6 +8,7 @@ const Showtime = require('../models/Showtime');
 const { requireAuth } = require('../middleware/auth');
 const { randomBytes } = require('crypto');
 const { bookingsTotal, revenueTotal } = require('../utils/metrics');
+const { sendToUser } = require('../utils/notifications');
 
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -224,6 +225,14 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     await session.commitTransaction();
     res.json({ message: 'Refund successful', payment, booking });
+
+    // Notify the user their refund was processed (fire-and-forget)
+    sendToUser(
+      req.userId,
+      '✅ Refund Confirmed',
+      `Your refund of $${payment.amount.toFixed(2)} has been processed.`,
+      { screen: 'Bookings', paymentId: payment._id.toString() }
+    ).catch((err) => console.error('[Notifications] sendToUser failed:', err.message));
   } catch (err) {
     await session.abortTransaction();
     res.status(500).json({ error: err.message });
