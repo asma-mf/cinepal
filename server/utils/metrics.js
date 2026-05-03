@@ -22,9 +22,47 @@ const revenueTotal = new promClient.Counter({
   help: 'Total revenue generated in LKR'
 });
 
+async function initBusinessMetrics() {
+  try {
+    const Booking = require('../models/Booking');
+    const Payment = require('../models/Payment');
+
+    // Get total confirmed bookings
+    const totalBookings = await Booking.countDocuments({ status: 'confirmed' });
+    bookingsTotal.inc(totalBookings);
+
+    // Get total revenue
+    const revenueAggregation = await Payment.aggregate([
+      { 
+        $group: { 
+          _id: null, 
+          totalRevenue: { 
+            $sum: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$status', 'success'] }, then: '$amount' },
+                  { case: { $eq: ['$status', 'partial_refund'] }, then: { $divide: ['$amount', 2] } }
+                ],
+                default: 0
+              }
+            } 
+          } 
+        } 
+      }
+    ]);
+    const totalRev = revenueAggregation.length > 0 ? revenueAggregation[0].totalRevenue : 0;
+    revenueTotal.inc(totalRev);
+    
+    console.log(`[Metrics] Initialized Business Metrics: ${totalBookings} Bookings, ${totalRev} Revenue`);
+  } catch (error) {
+    console.error(`[Metrics] Failed to initialize business metrics:`, error);
+  }
+}
+
 module.exports = {
   promClient,
   clerkAuthLatency,
   bookingsTotal,
-  revenueTotal
+  revenueTotal,
+  initBusinessMetrics
 };

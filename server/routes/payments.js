@@ -39,6 +39,28 @@ router.get('/', requireAuth, async (req, res) => {
 
     const total = await Payment.countDocuments(filter);
 
+    // Calculate total revenue across ALL matching payments
+    const revenueAggregation = await Payment.aggregate([
+      { $match: filter },
+      { 
+        $group: { 
+          _id: null, 
+          totalRevenue: { 
+            $sum: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$status', 'success'] }, then: '$amount' },
+                  { case: { $eq: ['$status', 'partial_refund'] }, then: { $divide: ['$amount', 2] } }
+                ],
+                default: 0
+              }
+            } 
+          } 
+        } 
+      }
+    ]);
+    const totalRevenue = revenueAggregation.length > 0 ? revenueAggregation[0].totalRevenue : 0;
+
     if (page || limit) {
       return res.json({
         data: payments,
@@ -46,6 +68,7 @@ router.get('/', requireAuth, async (req, res) => {
         page: p,
         limit: l,
         totalPages: Math.ceil(total / l),
+        totalRevenue
       });
     }
 

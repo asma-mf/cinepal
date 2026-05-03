@@ -42,10 +42,13 @@ services:
     container_name: mongodb-exporter
     ports:
       - "9216:9216"
+    volumes:
+      - ./mongodb-exporter-web-config.yml:/etc/mongodb-exporter/web-config.yml
     environment:
       - MONGODB_URI=${MONGODB_URI}
     command:
       - '--mongodb.direct-connect=false'
+      - '--web.config.file=/etc/mongodb-exporter/web-config.yml'
     restart: unless-stopped
 
 volumes:
