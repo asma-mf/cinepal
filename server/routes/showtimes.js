@@ -3,7 +3,11 @@ const express = require('express');
 const router = express.Router();
 const Showtime = require('../models/Showtime');
 const Hall = require('../models/Hall');
+const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
+const { randomBytes } = require('crypto');
 const { requireAdmin } = require('../middleware/auth');
+const { sendToUsers } = require('../utils/notifications');
 
 router.get('/', async (req, res) => {
   try {
@@ -122,17 +126,66 @@ router.post('/', requireAdmin, async (req, res) => {
 router.patch('/cancel-future/:movieId', requireAdmin, async (req, res) => {
   try {
     const { movieId } = req.params;
-    const { fromDate } = req.body;
+    const { fromDate, processRefunds } = req.body;
     const dateLimit = fromDate ? new Date(fromDate) : new Date();
-    
+
+    // Find the showtimes to be cancelled before updating
+    const showtimesToCancel = await Showtime.find({
+      movieId,
+      date: { $gte: dateLimit },
+      status: 'active',
+    }).select('_id');
+    const showtimeIds = showtimesToCancel.map((s) => s._id);
+
     const result = await Showtime.updateMany(
-      { 
-        movieId, 
-        date: { $gte: dateLimit },
-        status: 'active'
-      },
+      { movieId, date: { $gte: dateLimit }, status: 'active' },
       { status: 'cancelled' }
     );
+
+    // Notify and optionally refund bookers of all affected showtimes
+    if (showtimeIds.length > 0) {
+      const affectedBookings = await Booking.find({
+        showtimeId: { $in: showtimeIds },
+        status: 'confirmed',
+      });
+      const userIds = [...new Set(affectedBookings.map((b) => b.userId))];
+
+      if (processRefunds && affectedBookings.length > 0) {
+        // Auto-refund: cancel bookings and create refund Payment records
+        for (const booking of affectedBookings) {
+          const payment = await Payment.findOne({ bookingId: booking._id, status: 'success' });
+          if (payment) {
+            payment.status = 'refunded';
+            await payment.save();
+          }
+          // Free the seats
+          await Showtime.findByIdAndUpdate(booking.showtimeId, {
+            $set: Object.fromEntries(
+              booking.seats.map((s, i) => [`seats.$[f${i}].status`, 'available'])
+            ),
+          }, {
+            arrayFilters: booking.seats.map((s, i) => ({ [`f${i}.row`]: s.row, [`f${i}.col`]: s.col })),
+          });
+          booking.status = 'cancelled';
+          await booking.save();
+        }
+        if (userIds.length > 0) {
+          sendToUsers(
+            userIds,
+            '⚠️ Showtimes Cancelled — Refund Issued',
+            'Some of your booked showtimes have been cancelled and refunds have been processed.',
+            { screen: 'Bookings' }
+          ).catch((err) => console.error('[Notifications] sendToUsers failed:', err.message));
+        }
+      } else if (userIds.length > 0) {
+        sendToUsers(
+          userIds,
+          '⚠️ Showtimes Cancelled',
+          'Some of your booked showtimes have been cancelled. Contact support for a refund.',
+          { screen: 'Bookings' }
+        ).catch((err) => console.error('[Notifications] sendToUsers failed:', err.message));
+      }
+    }
 
     res.json({ message: `${result.modifiedCount} future showtimes cancelled`, count: result.modifiedCount });
   } catch (err) {
@@ -174,15 +227,53 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Soft delete: mark cancelled rather than removing, to preserve booking history
+// Soft delete: mark cancelled, notify affected bookers, optionally process refunds
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    const { processRefunds } = req.body || {};
+
+    // Find affected confirmed bookings before cancelling
+    const affectedBookings = await Booking.find({
+      showtimeId: req.params.id,
+      status: 'confirmed',
+    });
+    const userIds = [...new Set(affectedBookings.map((b) => b.userId))];
+
     const showtime = await Showtime.findByIdAndUpdate(
       req.params.id,
       { status: 'cancelled' },
       { new: true }
     );
     if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
+
+    if (processRefunds && affectedBookings.length > 0) {
+      // Auto-refund: cancel bookings and mark payments as refunded
+      for (const booking of affectedBookings) {
+        const payment = await Payment.findOne({ bookingId: booking._id, status: 'success' });
+        if (payment) {
+          payment.status = 'refunded';
+          await payment.save();
+        }
+        booking.status = 'cancelled';
+        await booking.save();
+      }
+      if (userIds.length > 0) {
+        sendToUsers(
+          userIds,
+          '⚠️ Showtime Cancelled — Refund Issued',
+          'Your booked showtime has been cancelled and a refund has been processed.',
+          { screen: 'Bookings' }
+        ).catch((err) => console.error('[Notifications] sendToUsers failed:', err.message));
+      }
+    } else if (userIds.length > 0) {
+      sendToUsers(
+        userIds,
+        '⚠️ Showtime Cancelled',
+        'A showtime you booked has been cancelled. Contact support for a refund.',
+        { screen: 'Bookings' }
+      ).catch((err) => console.error('[Notifications] sendToUsers failed:', err.message));
+    }
+
     res.json(showtime);
   } catch (err) {
     res.status(500).json({ error: err.message });

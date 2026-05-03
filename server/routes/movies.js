@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Movie = require('../models/Movie');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendBroadcast } = require('../utils/notifications');
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 router.get('/actor-search', requireAdmin, async (req, res) => {
@@ -149,8 +150,18 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const movie = await Movie.create(req.body);
+    const { broadcast, ...movieData } = req.body;
+    const movie = await Movie.create(movieData);
     res.status(201).json(movie);
+
+    // Fire broadcast in the background (after response sent) so it doesn't block
+    if (broadcast === true) {
+      sendBroadcast(
+        '🎬 New Movie on CinePal!',
+        `"${movie.title}" is now available. Book your seats today!`,
+        { screen: 'Movies', movieId: movie._id.toString() }
+      ).catch((err) => console.error('[Notifications] Broadcast failed:', err.message));
+    }
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

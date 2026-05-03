@@ -14,9 +14,21 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotifications, deregisterPushNotifications } from './src/services/notificationService';
 
 // Prevent splash screen from hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
+
+// Global notification handler: controls how notifications behave when the app is in the foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 // Screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -223,14 +235,51 @@ function AuthStack() {
 }
 
 function RootNavigator() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const notificationResponseRef = React.useRef(null);
+  const navigationRef = React.useRef(null);
+
+  // Register/deregister push token when auth state changes
+  React.useEffect(() => {
+    if (!isLoaded) return;
+
+    if (isSignedIn) {
+      // Get Clerk session token and register push token with backend
+      getToken().then((authToken) => {
+        if (authToken) registerForPushNotifications(authToken);
+      });
+    } else {
+      // Deregister on sign-out (best-effort, token may not exist)
+      getToken().then((authToken) => {
+        if (authToken) deregisterPushNotifications(authToken);
+      }).catch(() => {});
+    }
+  }, [isLoaded, isSignedIn]);
+
+  // Listen for notification taps and navigate to the relevant screen
+  React.useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const screen = response.notification.request.content.data?.screen;
+      if (screen && navigationRef.current) {
+        // Navigate to BookingsTab for booking/refund notifications
+        if (screen === 'Bookings') {
+          navigationRef.current.navigate('BookingsTab');
+        }
+        // Navigate to HomeTab for new movie notifications
+        if (screen === 'Movies') {
+          navigationRef.current.navigate('HomeTab');
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!isLoaded) {
     return <LoadingOverlay />;
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {isSignedIn ? <MainTabs /> : <AuthStack />}
     </NavigationContainer>
   );

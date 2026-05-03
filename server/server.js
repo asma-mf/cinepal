@@ -19,6 +19,7 @@ const hallRoutes = require('./routes/halls');
 const showtimeRoutes = require('./routes/showtimes');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
+const notificationRoutes = require('./routes/notifications');
 
 const { getStatusPage } = require('./utils/statusTemplate');
 const promBundle = require('express-prom-bundle');
@@ -83,6 +84,7 @@ app.use('/api/halls', hallRoutes);
 app.use('/api/showtimes', showtimeRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Start Server
 const port = process.env.PORT || 5000;
