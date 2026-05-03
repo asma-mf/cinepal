@@ -4,6 +4,7 @@ import { View, Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-nat
 import { Text, Button, Chip, ActivityIndicator, Divider, useTheme } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import apiClient from '../services/api';
 
@@ -61,7 +62,10 @@ export default function MovieDetailScreen({ route, navigation }) {
             source={{ uri: movie.posterUrl || 'https://via.placeholder.com/400x560' }}
             style={styles.poster}
           />
-          <View style={styles.posterGradient} />
+          <LinearGradient
+            colors={['transparent', theme.colors.background]}
+            style={styles.posterGradient}
+          />
         </View>
 
         {/* Content */}
@@ -178,8 +182,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120,
-    backgroundColor: 'rgba(13,13,13,0.8)', // Fallback for gradient
+    height: 160, // Slightly taller for a smoother transition
   },
 
   // Content
