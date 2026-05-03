@@ -20,7 +20,35 @@ const showtimeRoutes = require('./routes/showtimes');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
 
+const { getStatusPage } = require('./utils/statusTemplate');
+const promBundle = require('express-prom-bundle');
+const { clerkAuthLatency } = require('./utils/metrics');
+
 const app = express();
+
+// Basic Auth for the /metrics endpoint
+app.use('/metrics', (req, res, next) => {
+  if (!process.env.METRICS_USER || !process.env.METRICS_PASSWORD) {
+    return next(); // Skip auth if not configured in environment
+  }
+  
+  const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+  const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
+
+  if (login === process.env.METRICS_USER && password === process.env.METRICS_PASSWORD) {
+    return next();
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="401"');
+  res.status(401).send('Authentication required.');
+});
+
+const metricsMiddleware = promBundle({
+  includeMethod: true,
+  includePath: true,
+  promClient: { collectDefaultMetrics: false }
+});
+app.use(metricsMiddleware);
 
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS 
@@ -28,9 +56,23 @@ const corsOptions = {
     : ['http://localhost:3000', 'http://localhost:5173'], // Default dev origins
   credentials: true,
 };
+
+// Root route for status page (Public)
+app.get('/', (req, res) => {
+  res.send(getStatusPage());
+});
+
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(clerkMiddleware());
+
+// Track Clerk middleware latency
+app.use((req, res, next) => {
+  const end = clerkAuthLatency.startTimer();
+  clerkMiddleware()(req, res, (err) => {
+    end();
+    next(err);
+  });
+});
 
 app.get('/api/test', (req, res) => res.json({ ok: true }));
 

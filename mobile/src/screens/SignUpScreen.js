@@ -8,10 +8,27 @@ import { useSignUp, useClerk, useAuth } from '@clerk/expo';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
+/**
+ * Derives the Clerk Frontend API (FAPI) base URL from the publishable key.
+ * Publishable key format: pk_test_<base64url(domain)>$ or pk_live_<base64url(domain)>$
+ */
+const getClerkFapiUrl = () => {
+  const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+  const base64Part = key.replace(/^pk_(test|live)_/, '');
+  try {
+    const decoded = atob(base64Part).replace(/\$$/, '');
+    return `https://${decoded}`;
+  } catch (e) {
+    console.warn('Could not decode Clerk publishable key:', e);
+    return null;
+  }
+};
+
 export default function SignUpScreen({ navigation }) {
   const { signUp } = useSignUp();
   const { setActive, client } = useClerk();
-  const { isLoaded } = useAuth();
+  // getToken is needed for the direct FAPI profile image upload (v3: useAuth is valid here)
+  const { isLoaded, getToken } = useAuth();
   const theme = useTheme();
 
   // Paging state
@@ -42,22 +59,6 @@ export default function SignUpScreen({ navigation }) {
     Alert.alert('Notice', String(msg));
   };
 
-  // Helper to convert URI to Blob robustly
-  const getBlobFromUri = async (uri) => {
-    return await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = function () {
-        resolve(xhr.response);
-      };
-      xhr.onerror = function (e) {
-        console.error('getBlobFromUri Error:', e);
-        reject(new TypeError("Network request failed"));
-      };
-      xhr.responseType = "blob";
-      xhr.open("GET", uri, true);
-      xhr.send(null);
-    });
-  };
 
   // Resume signup flow if it's already in progress (e.g. app restart during verification)
   useEffect(() => {
@@ -223,19 +224,44 @@ export default function SignUpScreen({ navigation }) {
       }
       
       if (signUp.status === 'complete') {
+        // v3: finalize() activates the session automatically.
+        // The navigate callback is purely for routing — do NOT call setActive() here.
         await signUp.finalize({
           navigate: async ({ session }) => {
-            await setActive({ session });
-            
-            // Upload profile picture if selected
+            // Upload profile picture if selected (best-effort, non-blocking)
+            // NOTE: session.user.setProfileImage() with a Blob fails in React Native.
+            // Use RN's native { uri, name, type } FormData + direct Clerk FAPI call instead.
             if (imageUri) {
               try {
-                // Use session.user directly as it's the most reliable reference during finalize
-                const blob = await getBlobFromUri(imageUri);
-                await session.user.setProfileImage({ file: blob });
-                console.log('Profile image uploaded successfully during signup');
+                const token = await getToken();
+                const fapiUrl = getClerkFapiUrl();
+
+                if (token && fapiUrl) {
+                  const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+                  const mimeType = ext === 'jpeg' || ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+
+                  const formData = new FormData();
+                  formData.append('file', {
+                    uri: imageUri,
+                    name: `profile.${ext}`,
+                    type: mimeType,
+                  });
+
+                  const res = await fetch(`${fapiUrl}/v1/me/profile_image`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData,
+                  });
+
+                  if (!res.ok) {
+                    console.warn('Profile image upload failed with status:', res.status);
+                  } else {
+                    console.log('Profile image uploaded successfully during signup');
+                  }
+                }
               } catch (e) {
-                console.log('Failed to upload profile image during signup:', e);
+                // Non-critical: don't block login if image upload fails
+                console.warn('Failed to upload profile image during signup:', e);
               }
             }
           }

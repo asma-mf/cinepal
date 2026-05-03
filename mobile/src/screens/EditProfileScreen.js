@@ -2,12 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Text, TextInput, Button, useTheme, Avatar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useUser } from '@clerk/expo';
+import { useUser, useAuth } from '@clerk/expo';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+/**
+ * Derives the Clerk Frontend API (FAPI) base URL from the publishable key.
+ * Publishable key format: pk_test_<base64url(domain)>$ or pk_live_<base64url(domain)>$
+ */
+const getClerkFapiUrl = () => {
+  const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+  const base64Part = key.replace(/^pk_(test|live)_/, '');
+  try {
+    // atob is available globally in React Native (Hermes)
+    const decoded = atob(base64Part).replace(/\$$/, '');
+    return `https://${decoded}`;
+  } catch (e) {
+    console.warn('Could not decode Clerk publishable key:', e);
+    return null;
+  }
+};
+
 export default function EditProfileScreen({ navigation }) {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const theme = useTheme();
 
   const [firstName, setFirstName] = useState(user?.firstName || '');
@@ -42,22 +60,6 @@ export default function EditProfileScreen({ navigation }) {
     }
   };
 
-  // Helper to convert URI to Blob robustly
-  const getBlobFromUri = async (uri) => {
-    return await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onload = function () {
-        resolve(xhr.response);
-      };
-      xhr.onerror = function (e) {
-        console.error('getBlobFromUri Error:', e);
-        reject(new TypeError("Network request failed"));
-      };
-      xhr.responseType = "blob";
-      xhr.open("GET", uri, true);
-      xhr.send(null);
-    });
-  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -75,9 +77,45 @@ export default function EditProfileScreen({ navigation }) {
       });
 
       // 2. Upload image if selected
+      // NOTE: user.setProfileImage() / XHR blob approach fails in React Native because
+      // RN's fetch cannot serialize a Blob for outgoing multipart requests.
+      // Instead, we call Clerk's FAPI directly using RN's native { uri, name, type }
+      // FormData format, which RN's fetch handles natively.
       if (imageUri) {
-        const blob = await getBlobFromUri(imageUri);
-        await user.setProfileImage({ file: blob });
+        const token = await getToken();
+        const fapiUrl = getClerkFapiUrl();
+
+        if (!token || !fapiUrl) {
+          throw new Error('Unable to upload image: missing auth token or configuration.');
+        }
+
+        const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+        const mimeType = ext === 'jpeg' || ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+
+        const formData = new FormData();
+        formData.append('file', {
+          uri: imageUri,
+          name: `profile.${ext}`,
+          type: mimeType,
+        });
+
+        const res = await fetch(`${fapiUrl}/v1/me/profile_image`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(
+            data.errors?.[0]?.long_message ||
+            data.errors?.[0]?.message ||
+            'Failed to upload profile image'
+          );
+        }
+
+        // Reload user so imageUrl refreshes in the UI
+        await user.reload();
       }
 
       Alert.alert('Success', 'Profile updated successfully!');

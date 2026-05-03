@@ -7,6 +7,7 @@ const Payment = require('../models/Payment');
 const Showtime = require('../models/Showtime');
 const { requireAuth } = require('../middleware/auth');
 const { randomBytes } = require('crypto');
+const { bookingsTotal, revenueTotal } = require('../utils/metrics');
 
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -118,6 +119,11 @@ router.post('/', requireAuth, async (req, res) => {
     );
 
     await session.commitTransaction();
+
+    // Increment business metrics
+    bookingsTotal.inc(1);
+    revenueTotal.inc(amount);
+
     res.status(201).json({ payment: payment[0], booking });
   } catch (err) {
     await session.abortTransaction();

@@ -1,0 +1,70 @@
+{
+  "title": "CinePal Observability",
+  "timezone": "browser",
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Bookings Made",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 5 },
+      "targets": [{ "expr": "sum(cinepal_bookings_total)", "refId": "A" }],
+      "fieldConfig": { "defaults": { "colorMode": "value", "unit": "none" } }
+    },
+    {
+      "type": "stat",
+      "title": "Total Revenue (LKR)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 5 },
+      "targets": [{ "expr": "sum(cinepal_revenue_total)", "refId": "A" }],
+      "fieldConfig": { "defaults": { "colorMode": "value", "unit": "currencyLKR" } }
+    },
+    {
+      "type": "stat",
+      "title": "API Request Rate",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 5 },
+      "targets": [{ "expr": "sum(rate(http_requests_total[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "type": "stat",
+      "title": "Error Rate %",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 5 },
+      "targets": [{ "expr": "(sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))) * 100", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "percent", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 5 }] } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Duration (Avg Latency)",
+      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 8 },
+      "targets": [{ "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])", "legendFormat": "Avg Latency", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 20, "lineWidth": 2 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Clerk Auth Latency",
+      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 8 },
+      "targets": [{ "expr": "rate(cinepal_clerk_auth_duration_seconds_sum[5m]) / rate(cinepal_clerk_auth_duration_seconds_count[5m])", "legendFormat": "Clerk Auth Latency", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 20, "lineWidth": 2 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "MongoDB Connection Pool",
+      "gridPos": { "x": 0, "y": 13, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "mongodb_connections{state=\"current\"}", "legendFormat": "Current Connections", "refId": "A" },
+        { "expr": "mongodb_connections{state=\"available\"}", "legendFormat": "Available Connections", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10 } } }
+    },
+    {
+      "type": "timeseries",
+      "title": "MongoDB Operations",
+      "gridPos": { "x": 12, "y": 13, "w": 12, "h": 8 },
+      "targets": [
+        { "expr": "rate(mongodb_op_counters_total{type=\"insert\"}[5m])", "legendFormat": "Inserts/sec" },
+        { "expr": "rate(mongodb_op_counters_total{type=\"query\"}[5m])", "legendFormat": "Queries/sec" },
+        { "expr": "rate(mongodb_op_counters_total{type=\"update\"}[5m])", "legendFormat": "Updates/sec" },
+        { "expr": "rate(mongodb_op_counters_total{type=\"delete\"}[5m])", "legendFormat": "Deletes/sec" }
+      ]
+    }
+  ]
+}
