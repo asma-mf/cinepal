@@ -31,7 +31,23 @@ export default function PendingBookingScreen({ route, navigation }) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [secondsLeft]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // If we are navigating to Payment, we don't need to release seats
+      if (e.data.action.type === 'NAVIGATE' && e.data.action.payload?.name === 'Payment') {
+        return;
+      }
+      
+      // If we are backing away (pop, back button), release seats
+      const action = e.data.action;
+      if (action.type === 'GO_BACK' || action.type === 'POP') {
+        authRequest({ method: 'DELETE', url: `/bookings/${bookingId}` }).catch(() => {});
+      }
+    });
+    return unsubscribe;
+  }, [navigation, bookingId]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;

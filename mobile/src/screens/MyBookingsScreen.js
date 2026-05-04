@@ -1,20 +1,21 @@
 // My bookings screen: upcoming and past bookings with Paper Cards
 import React from 'react';
-import { View, FlatList, Image, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Chip, ActivityIndicator, Surface, useTheme, Divider } from 'react-native-paper';
+import { View, FlatList, Image, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { Text, Chip, ActivityIndicator, Surface, useTheme } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApiClient } from '../services/api';
-import { TouchableOpacity } from 'react-native';
 
 const STATUS_CONFIG = {
   confirmed: { icon: 'check-circle', color: '#22c55e', label: 'Confirmed' },
-  pending: { icon: 'clock-outline', color: '#f59e0b', label: 'Pending' },
+  pending: { icon: 'clock-outline', color: '#f59e0b', label: 'Pending - Pay Now' },
+  expired: { icon: 'clock-remove-outline', color: '#ef4444', label: 'Expired' },
   cancelled: { icon: 'close-circle', color: '#ef4444', label: 'Cancelled' },
 };
 
-const BookingCard = ({ booking, onPress, theme }) => {
+// navigation is now explicitly passed as a prop so the ticket icon button works
+const BookingCard = ({ booking, onPress, theme, navigation }) => {
   const showtime = booking.showtimeId;
   const movie = showtime?.movieId;
   const statusConfig = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pending;
@@ -53,7 +54,25 @@ const BookingCard = ({ booking, onPress, theme }) => {
             <Text style={styles.seats}>{booking.seats?.length || 0} seat{booking.seats?.length !== 1 ? 's' : ''}</Text>
           </View>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color="#3A3A3A" />
+        <View style={styles.cardActions}>
+          {booking.status === 'confirmed' && (
+            <TouchableOpacity
+              onPress={() => {
+                navigation.navigate('Ticket', {
+                  bookingId: booking._id,
+                  booking: booking,
+                  payment: booking.payment,
+                  movie: showtime?.movieId,
+                  seats: booking.seats,
+                });
+              }}
+              style={styles.downloadIcon}
+            >
+              <MaterialCommunityIcons name="ticket-confirmation" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+          )}
+          <MaterialCommunityIcons name="chevron-right" size={20} color="#3A3A3A" />
+        </View>
       </Surface>
     </TouchableOpacity>
   );
@@ -82,11 +101,28 @@ export default function MyBookingsScreen({ navigation }) {
     setRefreshing(false);
   }, [refetch]);
 
+  const now = new Date();
+
   const upcoming = (data || []).filter(
-    (b) => b.status === 'confirmed' && b.showtimeId?.date && new Date(b.showtimeId.date) > new Date()
+    (b) => {
+      if (b.status === 'confirmed') return b.showtimeId?.date && new Date(b.showtimeId.date) > now;
+      if (b.status === 'pending') return b.expiresAt && new Date(b.expiresAt) > now;
+      return false;
+    }
   );
-  const past = (data || []).filter(
-    (b) => b.status !== 'confirmed' || !b.showtimeId?.date || new Date(b.showtimeId.date) <= new Date()
+
+  const past = (data || []).map(b => {
+    // If it's pending but past the expiry time locally, map it to expired
+    if (b.status === 'pending' && (!b.expiresAt || new Date(b.expiresAt) <= now)) {
+      return { ...b, status: 'expired' };
+    }
+    return b;
+  }).filter(
+    (b) => {
+      if (b.status === 'confirmed') return !b.showtimeId?.date || new Date(b.showtimeId.date) <= now;
+      if (b.status === 'expired' || b.status === 'cancelled') return true;
+      return false;
+    }
   );
 
   const sections = [
@@ -102,7 +138,20 @@ export default function MyBookingsScreen({ navigation }) {
       <BookingCard
         booking={item}
         theme={theme}
-        onPress={(b) => navigation.navigate('BookingDetail', { bookingId: b._id })}
+        navigation={navigation}
+        onPress={(b) => {
+          if (b.status === 'pending') {
+            navigation.navigate('Payment', {
+              bookingId: b._id,
+              seats: b.seats,
+              price: b.showtimeId?.price || 0,
+              total: b.seats.length * (b.showtimeId?.price || 0),
+              movie: b.showtimeId?.movieId,
+            });
+          } else {
+            navigation.navigate('BookingDetail', { bookingId: b._id });
+          }
+        }}
       />
     );
   };
@@ -144,10 +193,10 @@ export default function MyBookingsScreen({ navigation }) {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh} 
-              colors={['#E50914']} 
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#E50914']}
               tintColor="#E50914"
               progressBackgroundColor="#1C1C1C"
             />
@@ -197,4 +246,6 @@ const styles = StyleSheet.create({
   statusChip: { height: 28, borderRadius: 8 },
   statusChipText: { fontSize: 12, fontWeight: '700' },
   seats: { color: '#666', fontSize: 12, fontWeight: '500' },
+  cardActions: { alignItems: 'flex-end', gap: 12 },
+  downloadIcon: { padding: 4, backgroundColor: '#2A2A2A', borderRadius: 8 },
 });

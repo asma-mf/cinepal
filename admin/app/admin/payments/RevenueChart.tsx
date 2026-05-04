@@ -65,14 +65,14 @@ export function RevenueChart({ payments }: { payments: any[] }) {
         />
         <Tooltip 
           contentStyle={{ backgroundColor: '#1c1c1c', border: 'none', borderRadius: '8px' }}
-          itemStyle={{ color: '#E50914' }}
+          itemStyle={{ color: '#22c55e' }}
         />
         <Line 
           type="monotone" 
           dataKey="amount" 
-          stroke="#E50914" 
+          stroke="#22c55e" 
           strokeWidth={3}
-          dot={{ r: 4, fill: '#E50914', strokeWidth: 2, stroke: '#111' }}
+          dot={{ r: 4, fill: '#22c55e', strokeWidth: 2, stroke: '#111' }}
           activeDot={{ r: 6, strokeWidth: 0 }}
         />
       </LineChart>
@@ -105,7 +105,12 @@ export function StatusDistributionChart({ payments }: { payments: any[] }) {
         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#333" />
         <XAxis type="number" hide />
         <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#888' }} width={100} />
-        <Tooltip cursor={{ fill: '#222' }} contentStyle={{ backgroundColor: '#1c1c1c', border: 'none', borderRadius: '8px' }} />
+        <Tooltip 
+        cursor={{ fill: 'background'  }} 
+        contentStyle={{ backgroundColor: '#1c1c1c', border: 'none', borderRadius: '8px' }} 
+        itemStyle={{ color: '#fff' }}
+        formatter={(value) => `LKR ${value}`}
+        />
         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
           {data.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={entry.color} />

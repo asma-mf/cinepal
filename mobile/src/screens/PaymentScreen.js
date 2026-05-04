@@ -31,6 +31,11 @@ export default function PaymentScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
+  React.useEffect(() => {
+    // We no longer automatically delete the booking when backing away.
+    // The booking will naturally expire after 10 minutes if unpaid.
+  }, [navigation, bookingId]);
+
   const handlePay = async () => {
     if (!cardNumber || !expiry || !cvv || !cardHolder) {
       setSnackbar({ visible: true, message: 'Please fill in all card details.' });

@@ -2,6 +2,7 @@ export default {
   expo: {
     name: "Cinepal",
     slug: "cinepal-mobile",
+    scheme: "cinepal",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/playstore-icon.png",
@@ -18,7 +19,9 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.kavindunirmal.cinepal",
       infoPlist: {
-        ITSAppUsesNonExemptEncryption: false
+        ITSAppUsesNonExemptEncryption: false,
+        NSPhotoLibraryUsageDescription: "This app needs access to your photos to save your movie tickets.",
+        NSPhotoLibraryAddUsageDescription: "This app needs access to your photos to save your movie tickets."
       }
     },
     android: {
@@ -36,6 +39,7 @@ export default {
     plugins: [
       "expo-secure-store",
       "expo-notifications",
+      "expo-media-library",
       [
         "expo-image",
         {

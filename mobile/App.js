@@ -15,7 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
+import * as WebBrowser from 'expo-web-browser';
 import { registerForPushNotifications, deregisterPushNotifications } from './src/services/notificationService';
+
+// Handle OAuth redirects
+WebBrowser.maybeCompleteAuthSession();
 
 // Prevent splash screen from hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync();
@@ -152,6 +156,7 @@ function BookingsStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="MyBookings" component={MyBookingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} options={{ title: 'Booking Details' }} />
+      <Stack.Screen name="Ticket" component={TicketScreen} options={{ title: 'Your Ticket', headerLeft: null }} />
     </Stack.Navigator>
   );
 }

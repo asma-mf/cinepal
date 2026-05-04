@@ -4,7 +4,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, To
 import { Text, TextInput, Button, Snackbar, useTheme, Avatar, Checkbox, ProgressBar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSignUp, useClerk, useAuth } from '@clerk/expo';
+import { useSignUp, useClerk, useAuth, useSSO } from '@clerk/expo';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -26,6 +26,7 @@ const getClerkFapiUrl = () => {
 
 export default function SignUpScreen({ navigation }) {
   const { signUp } = useSignUp();
+  const { startSSOFlow } = useSSO();
   const { setActive, client } = useClerk();
   // getToken is needed for the direct FAPI profile image upload (v3: useAuth is valid here)
   const { isLoaded, getToken } = useAuth();
@@ -43,6 +44,7 @@ export default function SignUpScreen({ navigation }) {
   const [birthday, setBirthday] = useState('');
   const [username, setUsername] = useState('');
   const [imageUri, setImageUri] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [code, setCode] = useState('');
 
@@ -57,6 +59,27 @@ export default function SignUpScreen({ navigation }) {
     console.log('Showing error:', msg);
     setSnackbar({ visible: true, message: msg });
     Alert.alert('Notice', String(msg));
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!isLoaded) return;
+    setLoading(true);
+    try {
+      const { createdSessionId, setActive: setSessionActive } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: 'cinepal://oauth-callback',
+      });
+
+      if (createdSessionId) {
+        await setSessionActive({ session: createdSessionId });
+      }
+    } catch (err) {
+      console.error('Google SSO Error:', err);
+      const msg = err?.errors?.[0]?.message || err?.message || 'Google sign up failed';
+      showError(String(msg));
+    } finally {
+      setLoading(false);
+    }
   };
 
 
@@ -77,10 +100,12 @@ export default function SignUpScreen({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64);
     }
   };
 
@@ -164,8 +189,13 @@ export default function SignUpScreen({ navigation }) {
       return;
     }
     
-    if (!username) {
-      showError('Please choose a username.');
+    if (!username || username.length < 4) {
+      showError('Username must be at least 4 characters long.');
+      return;
+    }
+    
+    if (/\s/.test(username)) {
+      showError('Username cannot contain spaces.');
       return;
     }
     
@@ -229,36 +259,16 @@ export default function SignUpScreen({ navigation }) {
         await signUp.finalize({
           navigate: async ({ session }) => {
             // Upload profile picture if selected (best-effort, non-blocking)
-            // NOTE: session.user.setProfileImage() with a Blob fails in React Native.
-            // Use RN's native { uri, name, type } FormData + direct Clerk FAPI call instead.
-            if (imageUri) {
+            // We use base64 encoding with the standard Clerk SDK instead of a custom fetch.
+            if (imageBase64) {
               try {
-                const token = await getToken();
-                const fapiUrl = getClerkFapiUrl();
-
-                if (token && fapiUrl) {
-                  const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-                  const mimeType = ext === 'jpeg' || ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-
-                  const formData = new FormData();
-                  formData.append('file', {
-                    uri: imageUri,
-                    name: `profile.${ext}`,
-                    type: mimeType,
-                  });
-
-                  const res = await fetch(`${fapiUrl}/v1/me/profile_image`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                    body: formData,
-                  });
-
-                  if (!res.ok) {
-                    console.warn('Profile image upload failed with status:', res.status);
-                  } else {
-                    console.log('Profile image uploaded successfully during signup');
-                  }
-                }
+                const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+                const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+                
+                await session.user.setProfileImage({
+                  file: `data:${mimeType};base64,${imageBase64}`
+                });
+                console.log('Profile image uploaded successfully during signup');
               } catch (e) {
                 // Non-critical: don't block login if image upload fails
                 console.warn('Failed to upload profile image during signup:', e);
@@ -428,6 +438,27 @@ export default function SignUpScreen({ navigation }) {
                 />
                 <Button mode="contained" onPress={handleNext} style={styles.button} contentStyle={styles.buttonContent} labelStyle={styles.buttonLabel}>
                   Next
+                </Button>
+
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <Button
+                  mode="outlined"
+                  onPress={handleGoogleSignUp}
+                  icon={({ size, color }) => (
+                    <MaterialCommunityIcons name="google" size={size} color={color} />
+                  )}
+                  loading={loading}
+                  disabled={loading}
+                  style={[styles.button, styles.googleButton]}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={[styles.buttonLabel, { color: '#F5F5F5' }]}
+                >
+                  Continue with Google
                 </Button>
               </>
             )}
@@ -609,6 +640,28 @@ const styles = StyleSheet.create({
   avatarHint: { color: '#666', marginTop: 8 },
 
   button: { marginTop: 8, borderRadius: 10 },
+  googleButton: {
+    marginTop: 8,
+    borderColor: '#3A3A3A',
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#3A3A3A',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   buttonContent: { paddingVertical: 6 },
   buttonLabel: { fontSize: 16, fontWeight: '700' },
   linkButton: { marginTop: 12 },

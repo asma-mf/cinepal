@@ -24,6 +24,7 @@ const notificationRoutes = require('./routes/notifications');
 const { getStatusPage } = require('./utils/statusTemplate');
 const promBundle = require('express-prom-bundle');
 const { clerkAuthLatency, initBusinessMetrics } = require('./utils/metrics');
+const { initBookingCleanupJob } = require('./jobs/bookingCleanup');
 
 const app = express();
 
@@ -90,6 +91,7 @@ app.use('/api/notifications', notificationRoutes);
 const port = process.env.PORT || 5000;
 connectDB().then(() => {
   initBusinessMetrics();
+  initBookingCleanupJob();
   app.listen(port, () => console.log(`Server running on port ${port}`));
 });
 

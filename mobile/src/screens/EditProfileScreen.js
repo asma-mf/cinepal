@@ -32,6 +32,7 @@ export default function EditProfileScreen({ navigation }) {
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [birthday, setBirthday] = useState(user?.unsafeMetadata?.birthday || '');
   const [imageUri, setImageUri] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Auto-format birthday
@@ -53,10 +54,12 @@ export default function EditProfileScreen({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64);
     }
   };
 
@@ -77,42 +80,14 @@ export default function EditProfileScreen({ navigation }) {
       });
 
       // 2. Upload image if selected
-      // NOTE: user.setProfileImage() / XHR blob approach fails in React Native because
-      // RN's fetch cannot serialize a Blob for outgoing multipart requests.
-      // Instead, we call Clerk's FAPI directly using RN's native { uri, name, type }
-      // FormData format, which RN's fetch handles natively.
-      if (imageUri) {
-        const token = await getToken();
-        const fapiUrl = getClerkFapiUrl();
-
-        if (!token || !fapiUrl) {
-          throw new Error('Unable to upload image: missing auth token or configuration.');
-        }
-
+      // We use base64 encoding with the standard Clerk SDK instead of a custom fetch.
+      if (imageBase64) {
         const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-        const mimeType = ext === 'jpeg' || ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-
-        const formData = new FormData();
-        formData.append('file', {
-          uri: imageUri,
-          name: `profile.${ext}`,
-          type: mimeType,
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        
+        await user.setProfileImage({
+          file: `data:${mimeType};base64,${imageBase64}`
         });
-
-        const res = await fetch(`${fapiUrl}/v1/me/profile_image`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(
-            data.errors?.[0]?.long_message ||
-            data.errors?.[0]?.message ||
-            'Failed to upload profile image'
-          );
-        }
 
         // Reload user so imageUrl refreshes in the UI
         await user.reload();
