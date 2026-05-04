@@ -70,7 +70,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const theatre = await Theatre.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
     if (!theatre) return res.status(404).json({ error: 'Theatre not found' });

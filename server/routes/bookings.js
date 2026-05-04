@@ -126,7 +126,7 @@ router.post('/', requireAuth, async (req, res) => {
       },
       {
         arrayFilters: seats.map((s, i) => ({ [`f${i}.row`]: s.row, [`f${i}.col`]: s.col })),
-        new: true,
+        returnDocument: 'after',
       }
     );
 
@@ -187,7 +187,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       },
       {
         arrayFilters: newSeats.map((s, i) => ({ [`f${i}.row`]: s.row, [`f${i}.col`]: s.col })),
-        new: true,
+        returnDocument: 'after',
       }
     );
 

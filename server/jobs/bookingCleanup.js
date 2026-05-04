@@ -24,7 +24,7 @@ const cleanupExpiredBookings = async () => {
       const updatedBooking = await Booking.findOneAndUpdate(
         { _id: booking._id, status: 'pending' },
         { $set: { status: 'expired' } },
-        { new: true }
+        { returnDocument: 'after' }
       );
 
       // If the booking was already processed or confirmed concurrently, skip

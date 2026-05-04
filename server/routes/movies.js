@@ -179,7 +179,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (!oldMovie) return res.status(404).json({ error: 'Movie not found' });
 
     const movie = await Movie.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
 

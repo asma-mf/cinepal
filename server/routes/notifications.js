@@ -18,7 +18,7 @@ router.post('/token', requireAuth, async (req, res) => {
     const doc = await NotificationToken.findOneAndUpdate(
       { token },
       { userId: req.userId, token, platform: platform || 'android' },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     res.status(200).json({ ok: true, id: doc._id });
