@@ -196,22 +196,40 @@ export default function BookingDetailScreen({ route, navigation }) {
           />
         </Surface>
 
-        {/* Cancel button */}
-        {isFutureConfirmed && (
-          <Button
-            mode="outlined"
-            onPress={handleCancel}
-            loading={cancelling}
-            disabled={cancelling}
-            icon="close-circle-outline"
-            style={styles.cancelButton}
-            contentStyle={styles.cancelContent}
-            labelStyle={styles.cancelLabel}
-            textColor="#E50914"
-          >
-            Cancel Booking & Refund
-          </Button>
-        )}
+        {/* Action buttons */}
+        <View style={styles.actionButtons}>
+          {booking.status === 'confirmed' && (
+            <Button
+              mode="contained"
+              onPress={() => {
+                const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:3000';
+                const url = `${webUrl}/print/${booking._id}`;
+                import('react-native').then(({ Linking }) => Linking.openURL(url));
+              }}
+              icon="download"
+              style={styles.downloadButton}
+              buttonColor={theme.colors.primary}
+            >
+              Download Ticket
+            </Button>
+          )}
+
+          {isFutureConfirmed && (
+            <Button
+              mode="outlined"
+              onPress={handleCancel}
+              loading={cancelling}
+              disabled={cancelling}
+              icon="close-circle-outline"
+              style={styles.cancelButton}
+              contentStyle={styles.cancelContent}
+              labelStyle={styles.cancelLabel}
+              textColor="#E50914"
+            >
+              Cancel Booking & Refund
+            </Button>
+          )}
+        </View>
 
         </View>
         
@@ -307,7 +325,9 @@ const styles = StyleSheet.create({
   infoLabel: { color: '#AEAEAE', fontSize: 14 },
   infoValue: { color: '#F5F5F5', fontSize: 14, fontWeight: '600', flex: 1, textAlign: 'right' },
 
-  cancelButton: { borderRadius: 12, borderColor: '#E50914', marginTop: 4 },
+  actionButtons: { gap: 12, marginTop: 4 },
+  downloadButton: { borderRadius: 12 },
+  cancelButton: { borderRadius: 12, borderColor: '#E50914' },
   cancelContent: { paddingVertical: 4 },
   cancelLabel: { fontSize: 15, fontWeight: '600' },
 });

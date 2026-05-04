@@ -53,7 +53,21 @@ const BookingCard = ({ booking, onPress, theme }) => {
             <Text style={styles.seats}>{booking.seats?.length || 0} seat{booking.seats?.length !== 1 ? 's' : ''}</Text>
           </View>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color="#3A3A3A" />
+        <View style={styles.cardActions}>
+          {booking.status === 'confirmed' && (
+            <TouchableOpacity 
+              onPress={() => {
+                const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:3000';
+                const url = `${webUrl}/print/${booking._id}`;
+                import('react-native').then(({ Linking }) => Linking.openURL(url));
+              }}
+              style={styles.downloadIcon}
+            >
+              <MaterialCommunityIcons name="download" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+          )}
+          <MaterialCommunityIcons name="chevron-right" size={20} color="#3A3A3A" />
+        </View>
       </Surface>
     </TouchableOpacity>
   );
@@ -197,4 +211,6 @@ const styles = StyleSheet.create({
   statusChip: { height: 28, borderRadius: 8 },
   statusChipText: { fontSize: 12, fontWeight: '700' },
   seats: { color: '#666', fontSize: 12, fontWeight: '500' },
+  cardActions: { alignItems: 'flex-end', gap: 12 },
+  downloadIcon: { padding: 4, backgroundColor: '#2A2A2A', borderRadius: 8 },
 });

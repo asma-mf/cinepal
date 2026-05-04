@@ -3,7 +3,8 @@ const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Showtime = require('../models/Showtime');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendToUsers } = require('../utils/notifications');
 
 // Return all bookings (for admin dashboard)
 router.get('/', requireAuth, async (req, res) => {
@@ -81,8 +82,8 @@ router.get('/:id', requireAuth, async (req, res) => {
     const booking = await Booking.findById(req.params.id).populate({
       path: 'showtimeId',
       populate: [
-        { path: 'movieId', select: 'title posterUrl' },
-        { path: 'theatreId', select: 'name' },
+        { path: 'movieId', select: 'title posterUrl backdropUrl duration' },
+        { path: 'theatreId', select: 'name location address' },
         { path: 'hallId', select: 'name' },
       ],
     });
@@ -290,6 +291,57 @@ router.put('/:id/cancel', requireAuth, async (req, res) => {
     }
 
     res.json({ booking, message, refundAmount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin cancellation with custom refund and comment
+router.put('/:id/admin-cancel', requireAdmin, async (req, res) => {
+  try {
+    const { refundPercentage, comment } = req.body;
+    const booking = await Booking.findById(req.params.id).populate('showtimeId');
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ error: 'Booking is already cancelled' });
+    }
+
+    // Release seats
+    const seats = booking.seats;
+    await Showtime.findByIdAndUpdate(
+      booking.showtimeId._id,
+      {
+        $set: Object.fromEntries(seats.map((s, i) => [`seats.$[f${i}].status`, 'available'])),
+      },
+      { arrayFilters: seats.map((s, i) => ({ [`f${i}.row`]: s.row, [`f${i}.col`]: s.col })) }
+    );
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = comment || 'Cancelled by administrator';
+    
+    // Handle refunds
+    const Payment = require('../models/Payment');
+    const payment = await Payment.findOne({ bookingId: booking._id });
+    let refundAmount = 0;
+
+    if (payment && payment.status === 'success' && refundPercentage > 0) {
+      refundAmount = (payment.amount * refundPercentage) / 100;
+      booking.refundAmount = refundAmount;
+      payment.status = refundPercentage === 100 ? 'refunded' : 'partial_refund';
+      await payment.save();
+    }
+
+    await booking.save();
+
+    // Notify user
+    sendToUsers(
+      [booking.userId],
+      '⚠️ Booking Cancelled by Admin',
+      comment || 'Your booking has been cancelled by the cinema administrator.',
+      { screen: 'Bookings', bookingId: booking._id }
+    ).catch((err) => console.error('[Notifications] Admin cancel notification failed:', err.message));
+
+    res.json({ message: 'Booking cancelled by admin', refundAmount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

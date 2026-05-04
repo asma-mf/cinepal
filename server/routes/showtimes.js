@@ -5,9 +5,46 @@ const Showtime = require('../models/Showtime');
 const Hall = require('../models/Hall');
 const Booking = require('../models/Booking');
 const Payment = require('../models/Payment');
+const Movie = require('../models/Movie');
 const { randomBytes } = require('crypto');
 const { requireAdmin } = require('../middleware/auth');
 const { sendToUsers } = require('../utils/notifications');
+
+const checkOverlap = async (hallId, date, startTime, movieId, excludeShowtimeId = null) => {
+  const movie = await Movie.findById(movieId);
+  if (!movie) throw new Error('Movie not found');
+  const duration = movie.duration;
+
+  const showtimeDate = new Date(date);
+  const [hours, minutes] = startTime.split(':').map(Number);
+  const start = new Date(showtimeDate);
+  start.setHours(hours, minutes, 0, 0);
+  const end = new Date(start.getTime() + (duration + 30) * 60000); // 30 min cleaning buffer
+
+  const dayStart = new Date(showtimeDate);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(showtimeDate);
+  dayEnd.setHours(23, 59, 59, 999);
+
+  const existing = await Showtime.find({
+    hallId,
+    date: { $gte: dayStart, $lte: dayEnd },
+    status: 'active',
+    _id: { $ne: excludeShowtimeId },
+  }).populate('movieId', 'duration');
+
+  for (const s of existing) {
+    const [sHours, sMinutes] = s.startTime.split(':').map(Number);
+    const sStart = new Date(s.date);
+    sStart.setHours(sHours, sMinutes, 0, 0);
+    const sEnd = new Date(sStart.getTime() + (s.movieId.duration + 30) * 60000);
+
+    if (start < sEnd && end > sStart) {
+      return s;
+    }
+  }
+  return null;
+};
 
 router.get('/', async (req, res) => {
   try {
@@ -101,6 +138,12 @@ router.post('/', requireAdmin, async (req, res) => {
       const createdShowtimes = [];
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const overlap = await checkOverlap(hallId, d, startTime, movieId);
+        if (overlap) {
+          return res.status(409).json({ 
+            error: `Overlap detected on ${d.toDateString()}. Showtime starts at ${overlap.startTime}.` 
+          });
+        }
         const showtime = await Showtime.create({
           movieId,
           theatreId,
@@ -115,6 +158,12 @@ router.post('/', requireAdmin, async (req, res) => {
       }
       return res.status(201).json({ message: `${createdShowtimes.length} showtimes scheduled`, count: createdShowtimes.length });
     } else {
+      const overlap = await checkOverlap(hallId, date, startTime, movieId);
+      if (overlap) {
+        return res.status(409).json({ 
+          error: `Overlap detected. Existing showtime starts at ${overlap.startTime}.` 
+        });
+      }
       const showtime = await Showtime.create({ movieId, theatreId, hallId, date, startTime, format, price, seats });
       return res.status(201).json(showtime);
     }
@@ -195,12 +244,27 @@ router.patch('/cancel-future/:movieId', requireAdmin, async (req, res) => {
 
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, startTime, date, movieId, hallId } = req.body;
     
-    // Safety check for reinstating cancelled shows
-    if (status === 'active') {
+    // Safety check for reinstating cancelled shows or updating active shows
+    if (status === 'active' || (status === undefined && startTime)) {
       const existing = await Showtime.findById(req.params.id);
-      if (existing && existing.status === 'cancelled') {
+      if (!existing) return res.status(404).json({ error: 'Showtime not found' });
+
+      // Check for overlap if time/date/hall/movie changed or reinstating
+      const newHallId = hallId || existing.hallId;
+      const newDate = date || existing.date;
+      const newStartTime = startTime || existing.startTime;
+      const newMovieId = movieId || existing.movieId;
+
+      const overlap = await checkOverlap(newHallId, newDate, newStartTime, newMovieId, req.params.id);
+      if (overlap) {
+        return res.status(409).json({ 
+          error: `Overlap detected. Existing showtime starts at ${overlap.startTime}.` 
+        });
+      }
+
+      if (status === 'active' && existing.status === 'cancelled') {
         const showtimeDate = new Date(existing.date);
         const [hours, minutes] = (existing.startTime || "00:00").split(':');
         showtimeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -221,6 +285,21 @@ router.put('/:id', requireAdmin, async (req, res) => {
       runValidators: true,
     });
     if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
+
+    // If reinstated, notify users who had booked but not refunded
+    if (status === 'active') {
+      const confirmedBookings = await Booking.find({ showtimeId: showtime._id, status: 'confirmed' });
+      const userIds = [...new Set(confirmedBookings.map(b => b.userId))];
+      if (userIds.length > 0) {
+        sendToUsers(
+          userIds,
+          '✅ Showtime Reinstated',
+          `The showtime for "${showtime.movieId.title || 'your movie'}" has been reinstated. Your booking is still valid.`,
+          { screen: 'Bookings', bookingId: confirmedBookings[0]._id }
+        ).catch((err) => console.error('[Notifications] Reinstate notification failed:', err.message));
+      }
+    }
+
     res.json(showtime);
   } catch (err) {
     res.status(400).json({ error: err.message });

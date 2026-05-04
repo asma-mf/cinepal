@@ -128,7 +128,9 @@ export default function SeatSelectionScreen({ route, navigation }) {
             <Text style={styles.screenTitle}>Select Seats</Text>
             <View style={styles.subtitleRow}>
               <Text style={styles.movieName} numberOfLines={1}>{showtime?.movieId?.title}</Text>
-              <Text style={styles.showtimeMeta}>{showtime?.startTime} · {showtime?.format}</Text>
+              <Text style={styles.showtimeMeta}>
+                {showtime?.date ? new Date(showtime.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' }) : '—'} · {showtime?.startTime} · {showtime?.format}
+              </Text>
             </View>
           </View>
           {showtime?.movieId?.posterUrl && (

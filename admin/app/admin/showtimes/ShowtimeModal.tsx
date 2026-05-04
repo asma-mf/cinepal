@@ -29,6 +29,7 @@ import {
   TabsList, 
   TabsTrigger 
 } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,6 +123,7 @@ export default function ShowtimeModal({
   const [cancelling, setCancelling] = useState(false);
   const [halls, setHalls] = useState<Hall[]>([]);
   const [originalShowtime, setOriginalShowtime] = useState<any>(null);
+  const [processRefunds, setProcessRefunds] = useState(true);
 
   const canReinstate = originalShowtime?.status === 'cancelled' && (() => {
     if (!originalShowtime.date) return false;
@@ -241,7 +243,11 @@ export default function ShowtimeModal({
     if (!editId) return;
     setCancelling(true);
     try {
-      const res = await fetch(`/api/proxy/showtimes/${editId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/proxy/showtimes/${editId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ processRefunds }),
+      });
       if (!res.ok) throw new Error('Failed to cancel showtime');
       toast.success('Showtime cancelled');
       handleOpenChange(false);
@@ -262,7 +268,7 @@ export default function ShowtimeModal({
       const res = await fetch(`/api/proxy/showtimes/cancel-future/${movieId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromDate }),
+        body: JSON.stringify({ fromDate, processRefunds }),
       });
       if (!res.ok) throw new Error('Failed to cancel future showtimes');
       const data = await res.json();
@@ -527,6 +533,16 @@ export default function ShowtimeModal({
                           <AlertDialogDescription>
                             This will mark this specific showtime as cancelled. Bookings will be preserved but the show will not proceed.
                           </AlertDialogDescription>
+                          <div className="flex items-center space-x-2 py-2">
+                            <Checkbox 
+                              id="refund-single" 
+                              checked={processRefunds} 
+                              onCheckedChange={(v) => setProcessRefunds(!!v)} 
+                            />
+                            <label htmlFor="refund-single" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                              Process full refunds for confirmed bookings
+                            </label>
+                          </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Go Back</AlertDialogCancel>
@@ -549,6 +565,16 @@ export default function ShowtimeModal({
                           <AlertDialogDescription>
                             This will cancel ALL future showtimes for this movie across all theatres from this date onwards. This action cannot be easily undone.
                           </AlertDialogDescription>
+                          <div className="flex items-center space-x-2 py-2">
+                            <Checkbox 
+                              id="refund-global" 
+                              checked={processRefunds} 
+                              onCheckedChange={(v) => setProcessRefunds(!!v)} 
+                            />
+                            <label htmlFor="refund-global" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                              Process full refunds for confirmed bookings
+                            </label>
+                          </div>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Go Back</AlertDialogCancel>

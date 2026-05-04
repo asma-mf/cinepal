@@ -66,11 +66,11 @@ export default async function AdminPaymentsPage({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Success</Badge>;
+        return <Badge variant="success">Success</Badge>;
       case 'partial_refund':
-        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20">Partial Refund</Badge>;
+        return <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20">Partial Refund</Badge>;
       case 'refunded':
-        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">Refunded</Badge>;
+        return <Badge variant="destructive">Refunded</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { SearchInput } from '@/components/SearchInput';
 import { PaginationWrapper } from '@/components/Pagination';
+import { BookingActions } from './BookingActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,7 +135,8 @@ export default async function AdminBookingsPage({
                         {booking.seats?.map((s) => `${s.row}${s.col}`).join(', ') || 'None'}
                       </TableCell>
                       <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right flex items-center justify-end gap-1">
+                        <BookingActions bookingId={booking._id} status={booking.status} />
                         <Button variant="ghost" size="icon" asChild>
                           <Link href={`/admin/bookings/${booking._id}/print`} target="_blank">
                             <Printer className="h-4 w-4" />
