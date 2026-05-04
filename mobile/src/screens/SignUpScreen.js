@@ -43,6 +43,7 @@ export default function SignUpScreen({ navigation }) {
   const [birthday, setBirthday] = useState('');
   const [username, setUsername] = useState('');
   const [imageUri, setImageUri] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [code, setCode] = useState('');
 
@@ -77,10 +78,12 @@ export default function SignUpScreen({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64);
     }
   };
 
@@ -229,36 +232,16 @@ export default function SignUpScreen({ navigation }) {
         await signUp.finalize({
           navigate: async ({ session }) => {
             // Upload profile picture if selected (best-effort, non-blocking)
-            // NOTE: session.user.setProfileImage() with a Blob fails in React Native.
-            // Use RN's native { uri, name, type } FormData + direct Clerk FAPI call instead.
-            if (imageUri) {
+            // We use base64 encoding with the standard Clerk SDK instead of a custom fetch.
+            if (imageBase64) {
               try {
-                const token = await getToken();
-                const fapiUrl = getClerkFapiUrl();
-
-                if (token && fapiUrl) {
-                  const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-                  const mimeType = ext === 'jpeg' || ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-
-                  const formData = new FormData();
-                  formData.append('file', {
-                    uri: imageUri,
-                    name: `profile.${ext}`,
-                    type: mimeType,
-                  });
-
-                  const res = await fetch(`${fapiUrl}/v1/me/profile_image`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                    body: formData,
-                  });
-
-                  if (!res.ok) {
-                    console.warn('Profile image upload failed with status:', res.status);
-                  } else {
-                    console.log('Profile image uploaded successfully during signup');
-                  }
-                }
+                const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+                const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+                
+                await session.user.setProfileImage({
+                  file: `data:${mimeType};base64,${imageBase64}`
+                });
+                console.log('Profile image uploaded successfully during signup');
               } catch (e) {
                 // Non-critical: don't block login if image upload fails
                 console.warn('Failed to upload profile image during signup:', e);
