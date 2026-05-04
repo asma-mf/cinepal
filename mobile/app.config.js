@@ -2,6 +2,7 @@ export default {
   expo: {
     name: "Cinepal",
     slug: "cinepal-mobile",
+    scheme: "cinepal",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/playstore-icon.png",

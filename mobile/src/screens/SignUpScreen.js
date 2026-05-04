@@ -4,7 +4,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, To
 import { Text, TextInput, Button, Snackbar, useTheme, Avatar, Checkbox, ProgressBar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSignUp, useClerk, useAuth } from '@clerk/expo';
+import { useSignUp, useClerk, useAuth, useSSO } from '@clerk/expo';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -26,6 +26,7 @@ const getClerkFapiUrl = () => {
 
 export default function SignUpScreen({ navigation }) {
   const { signUp } = useSignUp();
+  const { startSSOFlow } = useSSO();
   const { setActive, client } = useClerk();
   // getToken is needed for the direct FAPI profile image upload (v3: useAuth is valid here)
   const { isLoaded, getToken } = useAuth();
@@ -58,6 +59,27 @@ export default function SignUpScreen({ navigation }) {
     console.log('Showing error:', msg);
     setSnackbar({ visible: true, message: msg });
     Alert.alert('Notice', String(msg));
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!isLoaded) return;
+    setLoading(true);
+    try {
+      const { createdSessionId, setActive: setSessionActive } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: 'cinepal://oauth-callback',
+      });
+
+      if (createdSessionId) {
+        await setSessionActive({ session: createdSessionId });
+      }
+    } catch (err) {
+      console.error('Google SSO Error:', err);
+      const msg = err?.errors?.[0]?.message || err?.message || 'Google sign up failed';
+      showError(String(msg));
+    } finally {
+      setLoading(false);
+    }
   };
 
 
@@ -417,6 +439,27 @@ export default function SignUpScreen({ navigation }) {
                 <Button mode="contained" onPress={handleNext} style={styles.button} contentStyle={styles.buttonContent} labelStyle={styles.buttonLabel}>
                   Next
                 </Button>
+
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <Button
+                  mode="outlined"
+                  onPress={handleGoogleSignUp}
+                  icon={({ size, color }) => (
+                    <MaterialCommunityIcons name="google" size={size} color={color} />
+                  )}
+                  loading={loading}
+                  disabled={loading}
+                  style={[styles.button, styles.googleButton]}
+                  contentStyle={styles.buttonContent}
+                  labelStyle={[styles.buttonLabel, { color: '#F5F5F5' }]}
+                >
+                  Continue with Google
+                </Button>
               </>
             )}
 
@@ -597,6 +640,28 @@ const styles = StyleSheet.create({
   avatarHint: { color: '#666', marginTop: 8 },
 
   button: { marginTop: 8, borderRadius: 10 },
+  googleButton: {
+    marginTop: 8,
+    borderColor: '#3A3A3A',
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#3A3A3A',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   buttonContent: { paddingVertical: 6 },
   buttonLabel: { fontSize: 16, fontWeight: '700' },
   linkButton: { marginTop: 12 },
