@@ -19,6 +19,9 @@ on:
   # Allow manual trigger from the Actions tab
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-android:
     name: 🤖 Build Android APK
@@ -116,3 +119,28 @@ jobs:
           path: mobile/build/cinepal.apk
           retention-days: 30
           if-no-files-found: error
+
+      # ── 10. Release APK to GitHub ────────────────────────────────
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./mobile/package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}-build-${{ github.run_number }}
+          name: CinePal v${{ steps.get_version.outputs.VERSION }} (Build ${{ github.run_number }})
+          files: mobile/build/cinepal.apk
+          body: |
+            ### 🤖 Automated Android Build
+            - **Version:** ${{ steps.get_version.outputs.VERSION }}
+            - **Build Number:** ${{ github.run_number }}
+            - **Commit:** ${{ github.sha }}
+            
+            Download the APK attached below to test the latest changes.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

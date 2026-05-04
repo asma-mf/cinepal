@@ -284,7 +284,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     }
 
     const showtime = await Showtime.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
     if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
@@ -324,7 +324,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     const showtime = await Showtime.findByIdAndUpdate(
       req.params.id,
       { status: 'cancelled' },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!showtime) return res.status(404).json({ error: 'Showtime not found' });
 
@@ -375,7 +375,7 @@ router.patch('/:id/seat', requireAdmin, async (req, res) => {
     const showtime = await Showtime.findOneAndUpdate(
       { _id: req.params.id, 'seats.row': row, 'seats.col': col },
       { $set: { 'seats.$.status': status } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!showtime) {

@@ -7,7 +7,7 @@ const { requireAdmin } = require('../middleware/auth');
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const hall = await Hall.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
     if (!hall) return res.status(404).json({ error: 'Hall not found' });
