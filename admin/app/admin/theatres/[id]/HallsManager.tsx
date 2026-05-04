@@ -54,9 +54,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 export type { Hall } from './HallLayoutEditor';
-import { HallLayoutEditor } from './HallLayoutEditor';
 import type { Hall } from './HallLayoutEditor';
+import { HallLayoutEditor } from './HallLayoutEditor';
+import { HallShowtimeViewer } from './HallShowtimeViewer';
 
 const hallSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -136,18 +143,17 @@ export default function HallsManager({ theatreId, halls }: { theatreId: string; 
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="bg-background/50 backdrop-blur-sm border-muted">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <div className="space-y-0.5">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <LayoutGrid className="w-5 h-5 text-primary" />
-              Cinema Halls
-            </CardTitle>
-            <CardDescription>
-              Manage seating capacity and layouts for this theatre.
-            </CardDescription>
-          </div>
+    <div className="space-y-4 w-full">
+      <div className="flex flex-row items-center justify-between pb-4 border-b border-muted">
+        <div className="space-y-0.5">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <LayoutGrid className="w-5 h-5 text-primary" />
+            Cinema Halls
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Manage seating capacity and layouts for this theatre.
+          </p>
+        </div>
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2">
@@ -245,84 +251,72 @@ export default function HallsManager({ theatreId, halls }: { theatreId: string; 
               </Form>
             </DialogContent>
           </Dialog>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border border-muted">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>Hall Name</TableHead>
-                  <TableHead>Dimensions</TableHead>
-                  <TableHead>Total Seats</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {halls.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                      No halls configured for this theatre yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  halls.map((hall) => (
-                    <TableRow key={hall._id} className="hover:bg-muted/10 transition-colors">
-                      <TableCell className="font-medium">{hall.name}</TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">
-                          {hall.rows} R × {hall.cols} C
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="font-mono">
-                          {hall.rows * hall.cols}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <HallLayoutEditor 
-                            hall={hall} 
-                            onUpdate={() => router.refresh()} 
-                          />
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                disabled={deleting === hall._id}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Hall?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently remove the hall and any associated seat configurations. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction 
-                                  onClick={() => handleDelete(hall._id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+      </div>
+      <div className="rounded-md border border-muted p-2 bg-background/50">
+            {halls.length === 0 ? (
+              <div className="text-center h-24 flex items-center justify-center text-muted-foreground">
+                No halls configured for this theatre yet.
+              </div>
+            ) : (
+              <Accordion type="single" collapsible className="w-full">
+                {halls.map((hall) => (
+                  <AccordionItem key={hall._id} value={hall._id} className="border-b-0 mb-2 last:mb-0 border rounded-md bg-card overflow-hidden">
+                    <div className="flex items-center group pr-4 hover:bg-muted/30 transition-colors">
+                      <AccordionTrigger className="flex-1 hover:no-underline px-4 py-4 border-none">
+                        <div className="flex flex-wrap items-center gap-4 md:gap-6">
+                          <span className="font-semibold text-base">{hall.name}</span>
+                          <span className="text-sm text-muted-foreground hidden sm:inline-block">
+                            {hall.rows} R × {hall.cols} C
+                          </span>
+                          <Badge variant="secondary" className="font-mono">
+                            {hall.rows * hall.cols} Seats
+                          </Badge>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      </AccordionTrigger>
+                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        <HallLayoutEditor 
+                          hall={hall} 
+                          onUpdate={() => router.refresh()} 
+                        />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                              disabled={deleting === hall._id}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Hall?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently remove the hall and any associated seat configurations. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDelete(hall._id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                    <AccordionContent className="pt-4 px-4 pb-4 border-t border-muted/50">
+                      <HallShowtimeViewer hallId={hall._id} />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+      </div>
     </div>
   );
 }

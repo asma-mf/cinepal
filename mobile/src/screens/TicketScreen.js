@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { useApiClient } from '../services/api';
+import ViewShot from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
+import { useRef } from 'react';
 
 const InfoRow = ({ label, value }) => (
   <View style={styles.infoRow}>
@@ -27,7 +30,9 @@ export default function TicketScreen({ route, navigation }) {
   const { authRequest } = useApiClient();
   const theme = useTheme();
   const [refunding, setRefunding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const viewShotRef = useRef();
 
   const showtimeDate = booking?.showtimeId?.date ? new Date(booking.showtimeId.date) : null;
   const isFuture = showtimeDate && showtimeDate > new Date();
@@ -51,6 +56,26 @@ export default function TicketScreen({ route, navigation }) {
     }
   };
 
+  const handleSaveToGallery = async () => {
+    try {
+      setSaving(true);
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        setSnackbar({ visible: true, message: 'Permission to access gallery is required.' });
+        return;
+      }
+
+      const uri = await viewShotRef.current.capture();
+      await MediaLibrary.saveToLibraryAsync(uri);
+      setSnackbar({ visible: true, message: 'Ticket saved to gallery! 🎟️' });
+    } catch (err) {
+      console.error('Save to gallery error:', err);
+      setSnackbar({ visible: true, message: 'Failed to save ticket image.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -65,76 +90,92 @@ export default function TicketScreen({ route, navigation }) {
         </View>
 
         {/* Cinema Ticket Card */}
-        <Surface style={styles.ticket} elevation={2}>
-          {/* Ticket header */}
-          <View style={styles.ticketHeader}>
-            <Text style={styles.cinemaLabel}>CINEPAL</Text>
-            <Text style={styles.ticketMovieTitle} numberOfLines={2}>{movie?.title || '—'}</Text>
-            <View style={styles.formatRow}>
-              {booking?.showtimeId?.format && (
-                <View style={styles.formatBadge}>
-                  <Text style={styles.formatText}>{booking.showtimeId.format}</Text>
+        <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
+          <Surface style={styles.ticket} elevation={2}>
+            {/* Ticket header */}
+            <View style={styles.ticketHeader}>
+              <Text style={styles.cinemaLabel}>CINEPAL</Text>
+              <Text style={styles.ticketMovieTitle} numberOfLines={2}>{movie?.title || '—'}</Text>
+              <View style={styles.formatRow}>
+                {booking?.showtimeId?.format && (
+                  <View style={styles.formatBadge}>
+                    <Text style={styles.formatText}>{booking.showtimeId.format}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <PerforationLine />
+
+            {/* Ticket info grid */}
+            <View style={styles.ticketBody}>
+              <View style={styles.infoGrid}>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.gridLabel}>DATE</Text>
+                  <Text style={styles.gridValue}>{dateStr}</Text>
                 </View>
-              )}
-            </View>
-          </View>
-
-          <PerforationLine />
-
-          {/* Ticket info grid */}
-          <View style={styles.ticketBody}>
-            <View style={styles.infoGrid}>
-              <View style={styles.infoColumn}>
-                <Text style={styles.gridLabel}>DATE</Text>
-                <Text style={styles.gridValue}>{dateStr}</Text>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.gridLabel}>TIME</Text>
+                  <Text style={styles.gridValue}>{booking?.showtimeId?.startTime || '—'}</Text>
+                </View>
               </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.gridLabel}>TIME</Text>
-                <Text style={styles.gridValue}>{booking?.showtimeId?.startTime || '—'}</Text>
+              <Divider style={styles.innerDivider} />
+              <View style={styles.infoGrid}>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.gridLabel}>VENUE</Text>
+                  <Text style={styles.gridValue} numberOfLines={2}>
+                    {booking?.showtimeId?.theatreId?.name || '—'}
+                  </Text>
+                </View>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.gridLabel}>HALL</Text>
+                  <Text style={styles.gridValue}>{booking?.showtimeId?.hallId?.name || '—'}</Text>
+                </View>
               </View>
-            </View>
-            <Divider style={styles.innerDivider} />
-            <View style={styles.infoGrid}>
-              <View style={styles.infoColumn}>
-                <Text style={styles.gridLabel}>VENUE</Text>
-                <Text style={styles.gridValue} numberOfLines={2}>
-                  {booking?.showtimeId?.theatreId?.name || '—'}
-                </Text>
-              </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.gridLabel}>HALL</Text>
-                <Text style={styles.gridValue}>{booking?.showtimeId?.hallId?.name || '—'}</Text>
-              </View>
-            </View>
-            <Divider style={styles.innerDivider} />
-            <View style={styles.infoGrid}>
-              <View style={styles.infoColumn}>
-                <Text style={styles.gridLabel}>SEATS</Text>
-                <Text style={styles.gridValue}>{seatList}</Text>
-              </View>
-              <View style={styles.infoColumn}>
-                <Text style={styles.gridLabel}>AMOUNT</Text>
-                <Text style={[styles.gridValue, { color: '#E50914' }]}>
-                  LKR {payment?.amount?.toLocaleString() || 0}
-                </Text>
+              <Divider style={styles.innerDivider} />
+              <View style={styles.infoGrid}>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.gridLabel}>SEATS</Text>
+                  <Text style={styles.gridValue}>{seatList}</Text>
+                </View>
+                <View style={styles.infoColumn}>
+                  <Text style={styles.gridLabel}>AMOUNT</Text>
+                  <Text style={[styles.gridValue, { color: '#E50914' }]}>
+                    LKR {payment?.amount?.toLocaleString() || 0}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <PerforationLine />
+            <PerforationLine />
 
-          {/* QR Code section */}
-          <View style={styles.qrSection}>
-            <QRCode
-              value={String(booking?._id || 'booking')}
-              size={140}
-              backgroundColor="white"
-              color="#0D0D0D"
-            />
-            <Text style={styles.qrLabel}>Scan at the entrance</Text>
-            <Text style={styles.bookingId}>#{booking?._id?.slice(-10).toUpperCase()}</Text>
-          </View>
-        </Surface>
+            {/* QR Code section */}
+            <View style={styles.qrSection}>
+              <QRCode
+                value={String(booking?._id || 'booking')}
+                size={140}
+                backgroundColor="white"
+                color="#0D0D0D"
+              />
+              <Text style={styles.qrLabel}>Scan at the entrance</Text>
+              <Text style={styles.bookingId}>#{booking?._id?.slice(-10).toUpperCase()}</Text>
+            </View>
+          </Surface>
+        </ViewShot>
+
+        {/* Save button */}
+        <Button
+          mode="contained"
+          onPress={handleSaveToGallery}
+          loading={saving}
+          disabled={saving}
+          icon="download"
+          style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+          contentStyle={styles.saveContent}
+          labelStyle={styles.saveLabel}
+        >
+          Save to Gallery
+        </Button>
 
         {/* Transaction info */}
         {payment?.transactionId && (
@@ -288,6 +329,9 @@ const styles = StyleSheet.create({
   transactionText: { color: '#555', fontSize: 12 },
 
   // Buttons
+  saveButton: { borderRadius: 12, marginBottom: 12 },
+  saveContent: { paddingVertical: 8 },
+  saveLabel: { fontSize: 16, fontWeight: '700' },
   refundButton: { borderRadius: 12, borderColor: '#E50914', marginBottom: 12 },
   refundContent: { paddingVertical: 4 },
   refundLabel: { fontSize: 15, fontWeight: '600' },

@@ -167,8 +167,13 @@ export default function SignUpScreen({ navigation }) {
       return;
     }
     
-    if (!username) {
-      showError('Please choose a username.');
+    if (!username || username.length < 4) {
+      showError('Username must be at least 4 characters long.');
+      return;
+    }
+    
+    if (/\s/.test(username)) {
+      showError('Username cannot contain spaces.');
       return;
     }
     

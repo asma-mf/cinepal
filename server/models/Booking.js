@@ -12,15 +12,12 @@ const BookingSchema = new mongoose.Schema(
         _id: false,
       },
     ],
-    status: { type: String, enum: ['pending', 'confirmed', 'cancelled'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'expired'], default: 'pending' },
     expiresAt: { type: Date },
     cancellationReason: { type: String },
     refundAmount: { type: Number },
   },
   { timestamps: true }
 );
-
-// MongoDB TTL index deletes documents when expiresAt is reached
-BookingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('Booking', BookingSchema);

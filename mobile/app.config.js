@@ -18,7 +18,9 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.kavindunirmal.cinepal",
       infoPlist: {
-        ITSAppUsesNonExemptEncryption: false
+        ITSAppUsesNonExemptEncryption: false,
+        NSPhotoLibraryUsageDescription: "This app needs access to your photos to save your movie tickets.",
+        NSPhotoLibraryAddUsageDescription: "This app needs access to your photos to save your movie tickets."
       }
     },
     android: {
@@ -36,6 +38,7 @@ export default {
     plugins: [
       "expo-secure-store",
       "expo-notifications",
+      "expo-media-library",
       [
         "expo-image",
         {

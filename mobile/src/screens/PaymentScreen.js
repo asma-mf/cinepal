@@ -32,19 +32,8 @@ export default function PaymentScreen({ route, navigation }) {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
   React.useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      // If we are navigating to Ticket (success), don't release seats
-      if (e.data.action.type === 'REPLACE' && e.data.action.payload?.name === 'Ticket') {
-        return;
-      }
-      
-      // If we are backing away (pop, back button)
-      const action = e.data.action;
-      if (action.type === 'GO_BACK' || action.type === 'POP') {
-        authRequest({ method: 'DELETE', url: `/bookings/${bookingId}` }).catch(() => {});
-      }
-    });
-    return unsubscribe;
+    // We no longer automatically delete the booking when backing away.
+    // The booking will naturally expire after 10 minutes if unpaid.
   }, [navigation, bookingId]);
 
   const handlePay = async () => {

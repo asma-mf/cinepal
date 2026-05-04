@@ -48,11 +48,14 @@ const checkOverlap = async (hallId, date, startTime, movieId, excludeShowtimeId 
 
 router.get('/', async (req, res) => {
   try {
-    const { movieId, theatreId, date, timeframe, status, page, limit } = req.query;
+    const { movieId, theatreId, hallId, date, timeframe, status, page, limit } = req.query;
     const filter = {};
 
-    if (movieId) filter.movieId = movieId;
-    if (theatreId) filter.theatreId = theatreId;
+    const mongoose = require('mongoose');
+    if (movieId && mongoose.Types.ObjectId.isValid(movieId)) filter.movieId = new mongoose.Types.ObjectId(movieId);
+    if (theatreId && mongoose.Types.ObjectId.isValid(theatreId)) filter.theatreId = new mongoose.Types.ObjectId(theatreId);
+    if (hallId && mongoose.Types.ObjectId.isValid(hallId)) filter.hallId = new mongoose.Types.ObjectId(hallId);
+    
     
     // Status filter
     if (status && status !== 'all') {
@@ -354,6 +357,32 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     }
 
     res.json(showtime);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin endpoint to manually toggle seat status
+router.patch('/:id/seat', requireAdmin, async (req, res) => {
+  try {
+    const { row, col, status } = req.body;
+    
+    if (!['available', 'hold'].includes(status)) {
+      return res.status(400).json({ error: 'Admins can only toggle seats between available and hold' });
+    }
+
+    // Atomic update for a specific seat
+    const showtime = await Showtime.findOneAndUpdate(
+      { _id: req.params.id, 'seats.row': row, 'seats.col': col },
+      { $set: { 'seats.$.status': status } },
+      { new: true }
+    );
+
+    if (!showtime) {
+      return res.status(404).json({ error: 'Showtime or seat not found' });
+    }
+
+    res.json({ message: 'Seat updated successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
