@@ -152,6 +152,7 @@ function BookingsStack() {
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="MyBookings" component={MyBookingsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} options={{ title: 'Booking Details' }} />
+      <Stack.Screen name="Ticket" component={TicketScreen} options={{ title: 'Your Ticket', headerLeft: null }} />
     </Stack.Navigator>
   );
 }

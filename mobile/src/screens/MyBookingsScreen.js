@@ -1,12 +1,11 @@
 // My bookings screen: upcoming and past bookings with Paper Cards
 import React from 'react';
-import { View, FlatList, Image, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Chip, ActivityIndicator, Surface, useTheme, Divider } from 'react-native-paper';
+import { View, FlatList, Image, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { Text, Chip, ActivityIndicator, Surface, useTheme } from 'react-native-paper';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApiClient } from '../services/api';
-import { TouchableOpacity } from 'react-native';
 
 const STATUS_CONFIG = {
   confirmed: { icon: 'check-circle', color: '#22c55e', label: 'Confirmed' },
@@ -15,7 +14,8 @@ const STATUS_CONFIG = {
   cancelled: { icon: 'close-circle', color: '#ef4444', label: 'Cancelled' },
 };
 
-const BookingCard = ({ booking, onPress, theme }) => {
+// navigation is now explicitly passed as a prop so the ticket icon button works
+const BookingCard = ({ booking, onPress, theme, navigation }) => {
   const showtime = booking.showtimeId;
   const movie = showtime?.movieId;
   const statusConfig = STATUS_CONFIG[booking.status] || STATUS_CONFIG.pending;
@@ -56,12 +56,12 @@ const BookingCard = ({ booking, onPress, theme }) => {
         </View>
         <View style={styles.cardActions}>
           {booking.status === 'confirmed' && (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 navigation.navigate('Ticket', {
                   bookingId: booking._id,
                   booking: booking,
-                  payment: booking.payment, // Note: Payment might need fetching if not in booking object
+                  payment: booking.payment,
                   movie: showtime?.movieId,
                   seats: booking.seats,
                 });
@@ -138,6 +138,7 @@ export default function MyBookingsScreen({ navigation }) {
       <BookingCard
         booking={item}
         theme={theme}
+        navigation={navigation}
         onPress={(b) => {
           if (b.status === 'pending') {
             navigation.navigate('Payment', {
@@ -192,10 +193,10 @@ export default function MyBookingsScreen({ navigation }) {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh} 
-              colors={['#E50914']} 
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#E50914']}
               tintColor="#E50914"
               progressBackgroundColor="#1C1C1C"
             />

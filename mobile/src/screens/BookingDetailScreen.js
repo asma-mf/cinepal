@@ -202,15 +202,19 @@ export default function BookingDetailScreen({ route, navigation }) {
             <Button
               mode="contained"
               onPress={() => {
-                const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:3000';
-                const url = `${webUrl}/print/${booking._id}`;
-                import('react-native').then(({ Linking }) => Linking.openURL(url));
+                navigation.navigate('Ticket', {
+                  bookingId: booking._id,
+                  booking: booking,
+                  payment: null,
+                  movie: movie,
+                  seats: booking.seats,
+                });
               }}
-              icon="download"
+              icon="ticket-confirmation"
               style={styles.downloadButton}
               buttonColor={theme.colors.primary}
             >
-              Download Ticket
+              Save Ticket
             </Button>
           )}
 
