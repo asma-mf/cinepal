@@ -6,20 +6,24 @@ const Showtime = require('../models/Showtime');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendToUsers } = require('../utils/notifications');
 
-// Return all bookings (for admin dashboard)
+//  read and Return all bookings (for admin dashboard)
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { q, page, limit } = req.query;
     const filter = {};
 
     if (q) {
-      const isObjectId = /^[0-9a-fA-F]{24}$/.test(q);
-      if (isObjectId) {
+      // Check if the search term 'q' looks like a standard MongoDB ID (a 24-character hex string).
+      // This simple regex makes sure it only contains numbers 0-9 and letters a-f.
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(q);
+
+      if (isMongoId) {
+        // If it's a valid ID format, we can search for this exact booking ID directly.
         filter._id = q;
       } else {
-        filter.$or = [
-          { userId: { $regex: q, $options: 'i' } },
-        ];
+        // If it's not a valid ID, we assume the user is searching for a user ID string.
+        // We use $regex to allow partial and case-insensitive matching.
+        filter.userId = { $regex: q, $options: 'i' };
       }
     }
 
@@ -36,7 +40,7 @@ router.get('/', requireAuth, async (req, res) => {
           { path: 'hallId', select: 'name' },
         ],
       })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 }) //decending order
       .skip(skip)
       .limit(l);
 
@@ -57,8 +61,9 @@ router.get('/', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ----------------------------------------------------------------------------------
 
-// Return all bookings for the current user
+// read and Return all bookings for the current user
 router.get('/mine', requireAuth, async (req, res) => {
   try {
     const bookings = await Booking.find({ userId: req.userId })
@@ -76,7 +81,7 @@ router.get('/mine', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+//  -----------------------------------------------------------------------
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id).populate({
@@ -96,8 +101,9 @@ router.get('/:id', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ----------------------------------------------------------------------------------
 
-// Atomically hold seats; fails with 409 if any seat is unavailable
+// create and  Atomically hold seats; fails with 409 if any seat is unavailable
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { showtimeId, seats } = req.body;
@@ -133,7 +139,7 @@ router.post('/', requireAuth, async (req, res) => {
     if (!updated) return res.status(409).json({ error: 'One or more seats unavailable' });
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    const booking = await Booking.create({
+    const booking = await Booking.create({ // create the booking records
       userId: req.userId,
       showtimeId,
       seats,
@@ -146,8 +152,9 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-// Swap seats while booking is still pending: release old, atomically hold new
+// ----------------------------------------------------------------------------------
+// update 
+// update and Swap seats while booking is still pending: release old, atomically hold new
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
@@ -210,7 +217,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+//-----------------------------------------------------------------------------------
 // Cancel pending booking and release seats
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
@@ -275,7 +282,7 @@ router.put('/:id/cancel', requireAuth, async (req, res) => {
     // Handle refunds
     const Payment = require('../models/Payment');
     const payment = await Payment.findOne({ bookingId: booking._id });
-    
+
     let refundAmount = 0;
     let message = 'Booking cancelled. No refund issued as it is less than 24 hours before showtime.';
 
@@ -308,17 +315,37 @@ router.put('/:id/admin-cancel', requireAdmin, async (req, res) => {
 
     // Release seats
     const seats = booking.seats;
+
+    // We need to update specific seats in the database based on their row and column.
+    // Instead of using a complex map() and Object.fromEntries(), we build the update query step-by-step.
+    const updateOperations = {};
+    const seatFilters = [];
+
+    // Loop through each seat to build the update commands dynamically
+    for (let i = 0; i < seats.length; i++) {
+      const seat = seats[i];
+      const identifier = `seat${i}`; // Creates a unique placeholder like 'seat0', 'seat1'
+
+      // Tell MongoDB to set this specific seat's status back to 'available'
+      updateOperations[`seats.$[${identifier}].status`] = 'available';
+
+      // Tell MongoDB how to find this specific seat (by matching its row and col)
+      seatFilters.push({
+        [`${identifier}.row`]: seat.row,
+        [`${identifier}.col`]: seat.col
+      });
+    }
+
+    // Now execute the update on the showtime document using the objects we just built
     await Showtime.findByIdAndUpdate(
       booking.showtimeId._id,
-      {
-        $set: Object.fromEntries(seats.map((s, i) => [`seats.$[f${i}].status`, 'available'])),
-      },
-      { arrayFilters: seats.map((s, i) => ({ [`f${i}.row`]: s.row, [`f${i}.col`]: s.col })) }
+      { $set: updateOperations },
+      { arrayFilters: seatFilters }
     );
 
     booking.status = 'cancelled';
     booking.cancellationReason = comment || 'Cancelled by administrator';
-    
+
     // Handle refunds
     const Payment = require('../models/Payment');
     const payment = await Payment.findOne({ bookingId: booking._id });
@@ -336,7 +363,7 @@ router.put('/:id/admin-cancel', requireAdmin, async (req, res) => {
     // Notify user
     sendToUsers(
       [booking.userId],
-      '⚠️ Booking Cancelled by Admin',
+      ' Booking Cancelled by Admin',
       comment || 'Your booking has been cancelled by the cinema administrator.',
       { screen: 'Bookings', bookingId: booking._id }
     ).catch((err) => console.error('[Notifications] Admin cancel notification failed:', err.message));
